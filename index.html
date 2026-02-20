@@ -68,7 +68,7 @@
 
         <main class="flex-1 flex flex-col items-center md:items-start text-center md:text-left max-w-2xl">
             
-            <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 backdrop-blur-md border border-white/10 text-sm font-bold text-blue-300 mb-8 shadow-xl">
+            <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 backdrop-blur-md border border-white/10 text-sm font-bold text-blue-100 mb-8 shadow-xl">
                 <span class="relative flex h-3 w-3">
                   <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
                   <span class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
@@ -80,37 +80,37 @@
                 Sube de nivel.<br>
                 Usa <span class="text-gradient">MatchMaster.</span>
             </h1>
-            <p class="signature-font text-2xl text-slate-400 mb-6 ml-2 transform -rotate-2">by Belliard</p>
+            <p class="signature-font text-2xl text-slate-300 mb-6 ml-2 transform -rotate-2">by Belliard</p>
 
-            <p class="text-slate-400 text-lg md:text-xl max-w-xl mb-12 font-medium leading-relaxed">
-                La red exclusiva para conectar con Masters, compartir superpoderes y desbloquear nuevas habilidades. 🚀
+            <p class="text-slate-300 text-lg md:text-xl max-w-xl mb-12 font-medium leading-relaxed">
+                La red exclusiva para conectar con Masters, compartir conocimientos y aprender nuevas habilidades. 🚀
             </p>
 
             <div id="matchCard" class="w-full max-w-sm bg-white/10 backdrop-blur-xl border border-white/20 rounded-[2rem] p-6 shadow-2xl floating-card text-left transition-all duration-300 hover:scale-105 cursor-pointer mx-auto md:mx-0 opacity-50">
                 
                 <div class="flex items-center justify-between mb-6">
                     <div class="flex items-center gap-3">
-                        <div id="mainAvatar" class="w-12 h-12 rounded-full bg-gradient-to-tr from-purple-500 to-pink-500 flex items-center justify-center text-xl font-black shadow-lg">
+                        <div id="mainAvatar" class="w-12 h-12 rounded-full bg-gradient-to-tr from-purple-500 to-pink-500 flex items-center justify-center text-xl font-black shadow-lg text-white">
                             ⏳
                         </div>
                         <div>
-                            <h3 id="mainName" class="font-bold text-lg leading-none text-white">Cargando Master...</h3>
-                            <p class="text-xs text-blue-300 font-semibold mt-1">Conectando a la base de datos</p>
+                            <h3 id="mainName" class="font-bold text-xl leading-none text-white">Cargando Master...</h3>
+                            <p class="text-xs text-blue-100 font-semibold mt-1">Conectando a la base de datos</p>
                         </div>
                     </div>
-                    <div id="mainStatus" class="bg-blue-500/20 text-blue-400 text-xs font-black px-3 py-1.5 rounded-full border border-blue-500/30 flex items-center gap-1">
+                    <div id="mainStatus" class="bg-blue-500/30 text-blue-100 text-xs font-black px-3 py-1.5 rounded-full border border-blue-500/50 flex items-center gap-1">
                         ...
                     </div>
                 </div>
                 
                 <div class="space-y-4 mb-8">
                     <div>
-                        <span class="text-[10px] text-slate-400 uppercase font-black tracking-widest">Sus Superpoderes:</span>
+                        <span class="text-[11px] text-slate-200 uppercase font-black tracking-widest">Tengo mucho conocimiento de:</span>
                         <div id="mainMasters" class="flex flex-wrap gap-2 mt-2">
                             </div>
                     </div>
                     <div>
-                        <span class="text-[10px] text-slate-400 uppercase font-black tracking-widest">Quiere desbloquear:</span>
+                        <span class="text-[11px] text-slate-200 uppercase font-black tracking-widest">Quiero aprender de:</span>
                         <div id="mainLearns" class="flex flex-wrap gap-2 mt-2">
                             </div>
                     </div>
@@ -128,42 +128,36 @@
                     Masters Activos
                     <span id="activeCount" class="bg-green-500/20 text-green-400 text-xs px-2 py-0.5 rounded-full border border-green-500/30">0</span>
                 </h3>
-                <span class="text-xs text-slate-400 animate-pulse">● En vivo</span>
+                <span class="text-xs text-slate-300 animate-pulse">● En vivo</span>
             </div>
 
             <div id="sidebarList" class="space-y-4">
-                <p class="text-xs text-slate-400 text-center">Buscando compañeros...</p>
+                <p class="text-xs text-slate-300 text-center">Buscando compañeros...</p>
             </div>
 
             <div class="mt-8 p-4 bg-gradient-to-r from-purple-500/20 to-blue-500/20 rounded-2xl border border-purple-500/30 text-center">
-                <p class="text-xs font-bold text-purple-300 mb-1">🔥 Racha Semanal</p>
-                <p class="text-[10px] text-slate-400">¡La comunidad está creciendo!</p>
+                <p class="text-xs font-bold text-purple-200 mb-1">🔥 Racha Semanal</p>
+                <p class="text-[11px] text-slate-200">¡La comunidad está creciendo!</p>
             </div>
         </aside>
 
     </div>
 
-
     <script>
-        // 1. TU API DE GOOGLE SHEETS
         const apiURL = "https://script.google.com/macros/s/AKfycbyU2ANFGImXYoXrIloC2lklFEOqrg3r0w0VWUmzsme3IXiijfz6ABpnRVUQNLruE5za/exec";
 
-        // Variables para guardar los datos de la persona en la tarjeta principal
         let currentUserPhone = "";
         let currentUserName = "";
         let currentUserWantToLearn = "";
 
-        // Función para cargar los datos apenas se abre la página
         async function loadDatabase() {
             try {
-                // Hacemos la llamada al Sheet
                 const response = await fetch(apiURL);
                 const data = await response.json();
                 
-                // Si hay datos, renderizamos la app
                 if(data && data.length > 0) {
-                    renderMainCard(data[0]); // Ponemos al primero en la tarjeta grande
-                    renderSidebar(data);     // Ponemos al resto en la barra lateral
+                    renderMainCard(data[0]); 
+                    renderSidebar(data);     
                 }
             } catch (error) {
                 console.error("Error al cargar Google Sheets:", error);
@@ -171,89 +165,75 @@
             }
         }
 
-        // Función para inyectar datos en la Tarjeta Principal
         function renderMainCard(user) {
             document.getElementById('matchCard').classList.remove('opacity-50');
             
-            // Textos básicos
             document.getElementById('mainAvatar').innerText = user.Foto || "👤";
             document.getElementById('mainName').innerText = user.Nombre;
             document.getElementById('mainStatus').innerHTML = user.Estado === "Online" 
                 ? '<span class="relative flex h-2 w-2 mr-1"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span></span>Online'
                 : 'Offline';
 
-            // Habilidades (Master)
+            // Badges con letras más blancas (text-white)
             const masters = user.Master_En.split(',').map(s => s.trim());
             document.getElementById('mainMasters').innerHTML = masters.map(skill => 
-                `<span class="bg-purple-500/20 text-purple-300 text-xs font-bold px-3 py-1.5 rounded-lg border border-purple-500/30 backdrop-blur-sm">⚡ ${skill}</span>`
+                `<span class="bg-purple-600/40 text-white text-xs font-bold px-3 py-1.5 rounded-lg border border-purple-400/50 backdrop-blur-sm">⚡ ${skill}</span>`
             ).join('');
 
-            // Habilidades (Aprender)
             const learns = user.Quiere_Aprender.split(',').map(s => s.trim());
             document.getElementById('mainLearns').innerHTML = learns.map(skill => 
-                `<span class="bg-blue-500/20 text-blue-300 text-xs font-bold px-3 py-1.5 rounded-lg border border-blue-500/30 backdrop-blur-sm">🤖 ${skill}</span>`
+                `<span class="bg-blue-600/40 text-white text-xs font-bold px-3 py-1.5 rounded-lg border border-blue-400/50 backdrop-blur-sm">🤖 ${skill}</span>`
             ).join('');
 
-            // Preparar datos para el botón de WhatsApp
             currentUserPhone = user.Telefono;
-            currentUserName = user.Nombre.split(' ')[0]; // Solo el primer nombre
-            currentUserWantToLearn = learns[0] || "cosas nuevas"; // Toma la primera habilidad
+            currentUserName = user.Nombre.split(' ')[0]; 
+            currentUserWantToLearn = learns[0] || "cosas nuevas"; 
 
             const btn = document.getElementById('connectBtn');
             btn.innerHTML = `⚡ Conectar con ${currentUserName}`;
             btn.disabled = false;
         }
 
-        // Función para inyectar usuarios en la barra lateral
         function renderSidebar(users) {
             document.getElementById('activeCount').innerText = users.length;
             const sidebarList = document.getElementById('sidebarList');
-            sidebarList.innerHTML = ""; // Limpiamos el texto de "Buscando..."
+            sidebarList.innerHTML = ""; 
 
-            // Recorremos todos los usuarios (saltando al primero que ya está en la tarjeta grande)
             for(let i = 1; i < users.length; i++) {
                 const u = users[i];
                 const dotColor = u.Estado === "Online" ? "bg-green-500" : "bg-slate-500";
-                
-                // Extraer la primera habilidad para mostrarla chiquita
                 const firstMaster = u.Master_En.split(',')[0] || "Varios";
 
                 sidebarList.innerHTML += `
-                <div class="flex items-center gap-3 p-3 bg-white/5 rounded-xl border border-white/10 hover:bg-white/10 transition cursor-pointer">
+                <div class="flex items-center gap-3 p-3 bg-white/5 rounded-xl border border-white/10 hover:bg-white/20 transition cursor-pointer">
                     <div class="relative">
-                        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center font-bold text-sm">
+                        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center font-bold text-sm text-white">
                             ${u.Foto || "👤"}
                         </div>
                         <div class="absolute bottom-0 right-0 w-3 h-3 ${dotColor} border-2 border-[#0f172a] rounded-full"></div>
                     </div>
                     <div>
-                        <h4 class="font-bold text-sm text-slate-200 leading-none">${u.Nombre}</h4>
-                        <p class="text-[10px] text-blue-300 font-medium mt-1">Master en ${firstMaster}</p>
+                        <h4 class="font-bold text-sm text-white leading-none">${u.Nombre}</h4>
+                        <p class="text-[11px] text-blue-100 font-medium mt-1">Master en ${firstMaster}</p>
                     </div>
                 </div>
                 `;
             }
         }
 
-        // ==========================================
-        // LA MAGIA DEL BOTÓN DE WHATSAPP
-        // ==========================================
         const connectBtn = document.getElementById('connectBtn');
         const matchCard = document.getElementById('matchCard');
 
         connectBtn.addEventListener('click', function() {
-            // Generamos el mensaje dinámicamente con el nombre real de la base de datos
             const message = `¡Hola ${currentUserName}! 👋 Vi en MatchMaster que quieres aprender ${currentUserWantToLearn}. Yo te puedo ayudar. ¿Te animas a un café rápido de 15 min para compartir trucos? ☕`;
             const whatsappUrl = `https://wa.me/${currentUserPhone}?text=${encodeURIComponent(message)}`;
 
-            // 1. Feedback visual inmediato
             const originalText = connectBtn.innerHTML;
             connectBtn.innerHTML = "⏳ Iniciando enlace seguro...";
             connectBtn.classList.add('btn-loading');
             matchCard.style.animation = 'none';
             matchCard.style.transform = 'scale(0.98)';
 
-            // 2. Explosión de confeti
             confetti({
                 particleCount: 120,
                 spread: 80,
@@ -262,7 +242,6 @@
                 disableForReducedMotion: true
             });
             
-            // 3. Redirección a WhatsApp después de 2 segundos
             setTimeout(() => {
                 window.location.href = whatsappUrl;
                 
@@ -274,7 +253,6 @@
             }, 2000);
         });
 
-        // ARRANCAR LA APLICACIÓN AL CARGAR LA PÁGINA
         window.onload = loadDatabase;
 
     </script>

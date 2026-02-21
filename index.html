@@ -8,6 +8,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800;900&family=Dancing+Script:wght@600&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
     <style>
         body {
             font-family: 'Outfit', sans-serif;
@@ -58,7 +61,6 @@
             border: 1px solid rgba(255, 255, 255, 0.1);
         }
 
-        /* Scrollbar personalizada para el chat */
         .chat-scroll::-webkit-scrollbar { width: 6px; }
         .chat-scroll::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.02); }
         .chat-scroll::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
@@ -198,6 +200,26 @@
     </div>
 
     <script>
+        // ==========================================
+        // 2. CONFIGURACIÓN DE FIREBASE (¡TU TAREA!)
+        // Reemplaza esto con los datos de tu proyecto
+        // ==========================================
+        const firebaseConfig = {
+            apiKey: "TU_API_KEY",
+            authDomain: "TU_PROYECTO.firebaseapp.com",
+            databaseURL: "https://TU_PROYECTO.firebaseio.com",
+            projectId: "TU_PROYECTO",
+            storageBucket: "TU_PROYECTO.appspot.com",
+            messagingSenderId: "123456789",
+            appId: "1:123456789:web:abcdef"
+        };
+        
+        // Inicializamos la base de datos de chat
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+        let currentRoomRef = null; // Guardará la sala de chat actual
+        // ==========================================
+
         const apiURL = "https://script.google.com/macros/s/AKfycbyU2ANFGImXYoXrIloC2lklFEOqrg3r0w0VWUmzsme3IXiijfz6ABpnRVUQNLruE5za/exec";
 
         let allUsersData = []; 
@@ -206,7 +228,6 @@
         let currentUserName = "";
         let currentUserWantToLearn = "";
         
-        // Memoria para guardar el nombre de nuestro usuario actual
         let myUserName = localStorage.getItem('matchMasterUserName') || "";
 
         async function loadDatabase() {
@@ -288,22 +309,16 @@
 
         function changeMainCard(index) {
             const matchCard = document.getElementById('matchCard');
-            
             matchCard.style.opacity = '0.5';
             matchCard.style.transform = 'scale(0.95)';
-            
             setTimeout(() => {
                 renderMainCard(allUsersData[index]); 
                 matchCard.style.opacity = '1';
                 matchCard.style.transform = 'scale(1)';
             }, 200);
-
-            if (window.innerWidth < 768) {
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-            }
+            if (window.innerWidth < 768) window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
-        // --- LÓGICA DE IDENTIDAD Y CHAT ---
         const connectBtn = document.getElementById('connectBtn');
         const matchCard = document.getElementById('matchCard');
         const chatModal = document.getElementById('chatModal');
@@ -313,16 +328,10 @@
         const identityBox = document.getElementById('identityBox');
 
         connectBtn.addEventListener('click', function() {
-            // Si no tenemos el nombre del usuario, le mostramos la ventana para pedirlo
-            if (!myUserName) {
-                openIdentity();
-            } else {
-                // Si ya tenemos el nombre, abrimos directamente la conexión
-                simulateConnectionAndOpenChat();
-            }
+            if (!myUserName) openIdentity();
+            else simulateConnectionAndOpenChat();
         });
 
-        // Funciones de la Ventana de Identidad
         function openIdentity() {
             identityModal.classList.remove('hidden');
             setTimeout(() => {
@@ -337,34 +346,25 @@
             identityModal.classList.add('opacity-0');
             identityBox.classList.remove('scale-100');
             identityBox.classList.add('scale-95');
-            setTimeout(() => {
-                identityModal.classList.add('hidden');
-            }, 300);
+            setTimeout(() => identityModal.classList.add('hidden'), 300);
         }
 
         function saveIdentity() {
             const input = document.getElementById('myNameInput');
             const name = input.value.trim();
-            
             if (name !== "") {
                 myUserName = name;
-                localStorage.setItem('matchMasterUserName', myUserName); // Lo guarda en la memoria del navegador
+                localStorage.setItem('matchMasterUserName', myUserName);
                 closeIdentity();
                 simulateConnectionAndOpenChat();
             } else {
-                // Alerta visual si intenta guardar vacío
                 input.classList.add('border-red-500');
                 setTimeout(() => input.classList.remove('border-red-500'), 1000);
             }
         }
 
-        function handleIdentityKeyPress(event) {
-            if (event.key === 'Enter') {
-                saveIdentity();
-            }
-        }
+        function handleIdentityKeyPress(event) { if (event.key === 'Enter') saveIdentity(); }
 
-        // Simula la conexión y abre el Chat
         function simulateConnectionAndOpenChat() {
             const originalText = connectBtn.innerHTML;
             connectBtn.innerHTML = "⏳ Iniciando chat...";
@@ -372,19 +372,12 @@
             matchCard.style.animation = 'none';
             matchCard.style.transform = 'scale(0.98)';
 
-            confetti({
-                particleCount: 100,
-                spread: 70,
-                origin: { y: 0.6 },
-                colors: ['#3b82f6', '#a855f7'],
-                disableForReducedMotion: true
-            });
+            confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 }, colors: ['#3b82f6', '#a855f7'], disableForReducedMotion: true });
             
             setTimeout(() => {
                 connectBtn.innerHTML = originalText;
                 connectBtn.classList.remove('btn-loading');
                 matchCard.style.animation = 'float-card 4s ease-in-out infinite';
-                
                 openChat();
             }, 1000);
         }
@@ -396,17 +389,49 @@
             const chatMessages = document.getElementById('chatMessages');
             chatMessages.innerHTML = `
                 <div class="flex flex-col items-center justify-center my-6">
-                    <span class="text-[10px] text-slate-400 bg-white/5 px-3 py-1 rounded-full font-bold uppercase tracking-wider">Hoy</span>
-                </div>
-                <div class="flex items-start gap-3 w-4/5">
-                    <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-cyan-400 to-blue-600 flex-shrink-0 flex items-center justify-center text-xs">
-                        ${currentUserPhoto}
-                    </div>
-                    <div class="bg-white/10 border border-white/5 rounded-2xl rounded-tl-sm px-4 py-2 text-sm text-slate-200 shadow-md">
-                        ¡Hola ${myUserName}! Vi que también estás en MatchMaster. ¿De qué te gustaría hablar hoy? 🚀
-                    </div>
+                    <span class="text-[10px] text-slate-400 bg-white/5 px-3 py-1 rounded-full font-bold uppercase tracking-wider">Historial de Chat</span>
                 </div>
             `;
+
+            // 3. LÓGICA DE FIREBASE: Escuchar mensajes en tiempo real
+            if (currentRoomRef) currentRoomRef.off(); // Desconectamos de la sala anterior
+            
+            // Creamos un ID único para la sala usando el teléfono del Master
+            const roomID = `chats/room_${currentUserPhone}_general`;
+            currentRoomRef = db.ref(roomID);
+
+            // Escuchamos cada vez que se agregue un mensaje a la base de datos
+            currentRoomRef.on('child_added', (snapshot) => {
+                const data = snapshot.val();
+                
+                // Si el mensaje lo envié yo (Derecha)
+                if(data.sender === myUserName) {
+                    chatMessages.innerHTML += `
+                        <div class="flex flex-col items-end w-4/5 ml-auto">
+                            <span class="text-[10px] text-slate-400 mb-1 pr-1 font-bold">${data.sender} (Tú)</span>
+                            <div class="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl rounded-tr-sm px-4 py-2 text-sm text-white shadow-md">
+                                ${data.text}
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    // Si el mensaje lo envió el Master u otra persona (Izquierda)
+                    chatMessages.innerHTML += `
+                        <div class="flex items-start gap-3 w-4/5">
+                            <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-cyan-400 to-blue-600 flex-shrink-0 flex items-center justify-center text-xs text-white font-bold">
+                                ${data.sender.charAt(0).toUpperCase()}
+                            </div>
+                            <div class="flex flex-col items-start">
+                                <span class="text-[10px] text-slate-400 mb-1 pl-1 font-bold">${data.sender}</span>
+                                <div class="bg-white/10 border border-white/5 rounded-2xl rounded-tl-sm px-4 py-2 text-sm text-slate-200 shadow-md">
+                                    ${data.text}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+                chatMessages.scrollTop = chatMessages.scrollHeight; // Auto-scroll
+            });
 
             chatModal.classList.remove('hidden');
             setTimeout(() => {
@@ -415,7 +440,6 @@
                 chatBox.classList.add('scale-100');
             }, 10);
             
-            // Pone el cursor directo en la barra de escribir
             setTimeout(() => { document.getElementById('chatInput').focus(); }, 300);
         }
 
@@ -423,9 +447,7 @@
             chatModal.classList.add('opacity-0');
             chatBox.classList.remove('scale-100');
             chatBox.classList.add('scale-95');
-            setTimeout(() => {
-                chatModal.classList.add('hidden');
-            }, 300);
+            setTimeout(() => chatModal.classList.add('hidden'), 300);
         }
 
         function sendChatMessage() {
@@ -433,28 +455,18 @@
             const message = input.value.trim();
             
             if (message !== "") {
-                const chatMessages = document.getElementById('chatMessages');
-                
-                // Agregamos el mensaje del usuario con su nombre arriba
-                chatMessages.innerHTML += `
-                    <div class="flex flex-col items-end w-4/5 ml-auto">
-                        <span class="text-[10px] text-slate-400 mb-1 pr-1 font-bold">${myUserName} (Tú)</span>
-                        <div class="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl rounded-tr-sm px-4 py-2 text-sm text-white shadow-md">
-                            ${message}
-                        </div>
-                    </div>
-                `;
+                // 4. LÓGICA DE FIREBASE: Enviar el mensaje a la base de datos
+                currentRoomRef.push({
+                    sender: myUserName,
+                    text: message,
+                    timestamp: firebase.database.ServerValue.TIMESTAMP
+                });
                 
                 input.value = ""; 
-                chatMessages.scrollTop = chatMessages.scrollHeight;
             }
         }
 
-        function handleKeyPress(event) {
-            if (event.key === 'Enter') {
-                sendChatMessage();
-            }
-        }
+        function handleKeyPress(event) { if (event.key === 'Enter') sendChatMessage(); }
 
         window.onload = loadDatabase;
 

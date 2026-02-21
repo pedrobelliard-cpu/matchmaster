@@ -57,6 +57,11 @@
             background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(16px);
             border: 1px solid rgba(255, 255, 255, 0.1);
         }
+
+        /* Scrollbar personalizada para el chat */
+        .chat-scroll::-webkit-scrollbar { width: 6px; }
+        .chat-scroll::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.02); }
+        .chat-scroll::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
     </style>
 </head>
 <body class="text-white min-h-screen relative flex items-center justify-center p-4 md:p-8">
@@ -143,10 +148,47 @@
 
     </div>
 
+    <div id="chatModal" class="fixed inset-0 z-50 hidden bg-[#0f172a]/80 backdrop-blur-sm flex items-center justify-center p-4 opacity-0 transition-opacity duration-300">
+        <div class="w-full max-w-md bg-[#1e293b] border border-white/10 rounded-[2rem] shadow-2xl overflow-hidden flex flex-col h-[600px] max-h-[90vh] transform scale-95 transition-transform duration-300" id="chatBox">
+            
+            <div class="p-4 bg-white/5 border-b border-white/10 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div id="chatAvatar" class="w-10 h-10 rounded-full bg-gradient-to-tr from-purple-500 to-pink-500 flex items-center justify-center font-bold text-white shadow-lg">
+                        👤
+                    </div>
+                    <div>
+                        <h4 id="chatName" class="font-bold text-white leading-none">Cargando...</h4>
+                        <p class="text-[11px] text-green-400 font-medium mt-1 flex items-center gap-1">
+                            <span class="w-1.5 h-1.5 rounded-full bg-green-500 inline-block"></span> En línea
+                        </p>
+                    </div>
+                </div>
+                <button onclick="closeChat()" class="w-8 h-8 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors">
+                    ✕
+                </button>
+            </div>
+
+            <div id="chatMessages" class="flex-1 overflow-y-auto p-4 space-y-4 chat-scroll bg-gradient-to-b from-transparent to-black/20">
+                </div>
+
+            <div class="p-4 bg-white/5 border-t border-white/10">
+                <div class="flex gap-2">
+                    <input type="text" id="chatInput" placeholder="Escribe un mensaje..." class="flex-1 bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-purple-500 transition-colors" onkeypress="handleKeyPress(event)">
+                    <button onclick="sendChatMessage()" class="bg-gradient-to-r from-blue-600 to-purple-600 w-12 rounded-xl flex items-center justify-center hover:scale-105 transition-transform shadow-lg">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         const apiURL = "https://script.google.com/macros/s/AKfycbyU2ANFGImXYoXrIloC2lklFEOqrg3r0w0VWUmzsme3IXiijfz6ABpnRVUQNLruE5za/exec";
 
         let allUsersData = []; 
+        let currentUserPhoto = "";
         let currentUserPhone = "";
         let currentUserName = "";
         let currentUserWantToLearn = "";
@@ -171,7 +213,8 @@
             const matchCard = document.getElementById('matchCard');
             matchCard.classList.remove('opacity-50');
             
-            document.getElementById('mainAvatar').innerText = user.Foto || "👤";
+            currentUserPhoto = user.Foto || "👤";
+            document.getElementById('mainAvatar').innerText = currentUserPhoto;
             document.getElementById('mainName').innerText = user.Nombre;
             document.getElementById('mainStatus').innerHTML = user.Estado === "Online" 
                 ? '<span class="relative flex h-2 w-2 mr-1"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span></span>Online'
@@ -244,37 +287,108 @@
             }
         }
 
+        // --- LÓGICA NUEVA DEL CHAT ---
         const connectBtn = document.getElementById('connectBtn');
         const matchCard = document.getElementById('matchCard');
+        const chatModal = document.getElementById('chatModal');
+        const chatBox = document.getElementById('chatBox');
 
         connectBtn.addEventListener('click', function() {
-            const message = `¡Hola ${currentUserName}! 👋 Vi en MatchMaster que quieres aprender ${currentUserWantToLearn}. Yo te puedo ayudar. ¿Te animas a un café rápido de 15 min para compartir trucos? ☕`;
-            const whatsappUrl = `https://wa.me/${currentUserPhone}?text=${encodeURIComponent(message)}`;
-
+            // Simulamos conexión con animación
             const originalText = connectBtn.innerHTML;
-            connectBtn.innerHTML = "⏳ Iniciando enlace seguro...";
+            connectBtn.innerHTML = "⏳ Iniciando chat...";
             connectBtn.classList.add('btn-loading');
             matchCard.style.animation = 'none';
             matchCard.style.transform = 'scale(0.98)';
 
             confetti({
-                particleCount: 120,
-                spread: 80,
+                particleCount: 100,
+                spread: 70,
                 origin: { y: 0.6 },
-                colors: ['#3b82f6', '#a855f7', '#22c55e'],
+                colors: ['#3b82f6', '#a855f7'],
                 disableForReducedMotion: true
             });
             
             setTimeout(() => {
-                window.location.href = whatsappUrl;
+                // Restauramos el botón
+                connectBtn.innerHTML = originalText;
+                connectBtn.classList.remove('btn-loading');
+                matchCard.style.animation = 'float-card 4s ease-in-out infinite';
                 
-                setTimeout(() => {
-                    connectBtn.innerHTML = originalText;
-                    connectBtn.classList.remove('btn-loading');
-                    matchCard.style.animation = 'float-card 4s ease-in-out infinite';
-                }, 1000);
-            }, 2000);
+                // Abrimos el chat
+                openChat();
+            }, 1000);
         });
+
+        function openChat() {
+            // Preparamos los datos del usuario en la ventana
+            document.getElementById('chatName').innerText = currentUserName;
+            document.getElementById('chatAvatar').innerText = currentUserPhoto;
+            
+            // Limpiamos mensajes anteriores y ponemos un saludo inicial automático
+            const chatMessages = document.getElementById('chatMessages');
+            chatMessages.innerHTML = `
+                <div class="flex flex-col items-center justify-center my-6">
+                    <span class="text-[10px] text-slate-400 bg-white/5 px-3 py-1 rounded-full">Hoy</span>
+                </div>
+                <div class="flex items-start gap-3 w-4/5">
+                    <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-cyan-400 to-blue-600 flex-shrink-0 flex items-center justify-center text-xs">
+                        ${currentUserPhoto}
+                    </div>
+                    <div class="bg-white/10 border border-white/5 rounded-2xl rounded-tl-sm px-4 py-2 text-sm text-slate-200 shadow-md">
+                        ¡Hola! Vi que también estás en MatchMaster. ¿De qué te gustaría hablar hoy? 🚀
+                    </div>
+                </div>
+            `;
+
+            // Mostramos el modal con animación
+            chatModal.classList.remove('hidden');
+            setTimeout(() => {
+                chatModal.classList.remove('opacity-0');
+                chatBox.classList.remove('scale-95');
+                chatBox.classList.add('scale-100');
+            }, 10);
+        }
+
+        function closeChat() {
+            chatModal.classList.add('opacity-0');
+            chatBox.classList.remove('scale-100');
+            chatBox.classList.add('scale-95');
+            setTimeout(() => {
+                chatModal.classList.add('hidden');
+            }, 300);
+        }
+
+        // Función para enviar mensaje simulado
+        function sendChatMessage() {
+            const input = document.getElementById('chatInput');
+            const message = input.value.trim();
+            
+            if (message !== "") {
+                const chatMessages = document.getElementById('chatMessages');
+                
+                // Agregamos el mensaje del usuario (a la derecha)
+                chatMessages.innerHTML += `
+                    <div class="flex items-start gap-3 w-4/5 ml-auto justify-end">
+                        <div class="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl rounded-tr-sm px-4 py-2 text-sm text-white shadow-md">
+                            ${message}
+                        </div>
+                    </div>
+                `;
+                
+                input.value = ""; // Limpiamos el campo
+                
+                // Hacemos scroll hacia abajo
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+        }
+
+        // Permite enviar mensaje presionando la tecla "Enter"
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendChatMessage();
+            }
+        }
 
         window.onload = loadDatabase;
 

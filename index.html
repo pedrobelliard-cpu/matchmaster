@@ -148,6 +148,19 @@
 
     </div>
 
+    <div id="identityModal" class="fixed inset-0 z-[60] hidden bg-[#0f172a]/90 backdrop-blur-md flex items-center justify-center p-4 opacity-0 transition-opacity duration-300">
+        <div class="w-full max-w-sm bg-[#1e293b] border border-white/10 rounded-[2rem] shadow-2xl p-6 text-center transform scale-95 transition-transform duration-300" id="identityBox">
+            <div class="text-5xl mb-4">👋</div>
+            <h3 class="text-xl font-black text-white mb-2">¿Cómo te llamas?</h3>
+            <p class="text-sm text-slate-300 mb-6 font-medium">Para chatear con los Masters, necesitamos saber tu nombre.</p>
+            <input type="text" id="myNameInput" placeholder="Ej. Carlos, Ana..." class="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-purple-500 transition-colors mb-4 text-center font-bold" onkeypress="handleIdentityKeyPress(event)">
+            <button onclick="saveIdentity()" class="w-full py-3 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 font-bold text-white shadow-[0_0_15px_rgba(124,58,237,0.3)] hover:scale-105 transition-transform">
+                Entrar al Chat
+            </button>
+            <button onclick="closeIdentity()" class="mt-4 text-xs font-bold text-slate-400 hover:text-white transition-colors uppercase tracking-wider">Cancelar</button>
+        </div>
+    </div>
+
     <div id="chatModal" class="fixed inset-0 z-50 hidden bg-[#0f172a]/80 backdrop-blur-sm flex items-center justify-center p-4 opacity-0 transition-opacity duration-300">
         <div class="w-full max-w-md bg-[#1e293b] border border-white/10 rounded-[2rem] shadow-2xl overflow-hidden flex flex-col h-[600px] max-h-[90vh] transform scale-95 transition-transform duration-300" id="chatBox">
             
@@ -192,6 +205,9 @@
         let currentUserPhone = "";
         let currentUserName = "";
         let currentUserWantToLearn = "";
+        
+        // Memoria para guardar el nombre de nuestro usuario actual
+        let myUserName = localStorage.getItem('matchMasterUserName') || "";
 
         async function loadDatabase() {
             try {
@@ -287,14 +303,69 @@
             }
         }
 
-        // --- LÓGICA NUEVA DEL CHAT ---
+        // --- LÓGICA DE IDENTIDAD Y CHAT ---
         const connectBtn = document.getElementById('connectBtn');
         const matchCard = document.getElementById('matchCard');
         const chatModal = document.getElementById('chatModal');
         const chatBox = document.getElementById('chatBox');
+        
+        const identityModal = document.getElementById('identityModal');
+        const identityBox = document.getElementById('identityBox');
 
         connectBtn.addEventListener('click', function() {
-            // Simulamos conexión con animación
+            // Si no tenemos el nombre del usuario, le mostramos la ventana para pedirlo
+            if (!myUserName) {
+                openIdentity();
+            } else {
+                // Si ya tenemos el nombre, abrimos directamente la conexión
+                simulateConnectionAndOpenChat();
+            }
+        });
+
+        // Funciones de la Ventana de Identidad
+        function openIdentity() {
+            identityModal.classList.remove('hidden');
+            setTimeout(() => {
+                identityModal.classList.remove('opacity-0');
+                identityBox.classList.remove('scale-95');
+                identityBox.classList.add('scale-100');
+            }, 10);
+            document.getElementById('myNameInput').focus();
+        }
+
+        function closeIdentity() {
+            identityModal.classList.add('opacity-0');
+            identityBox.classList.remove('scale-100');
+            identityBox.classList.add('scale-95');
+            setTimeout(() => {
+                identityModal.classList.add('hidden');
+            }, 300);
+        }
+
+        function saveIdentity() {
+            const input = document.getElementById('myNameInput');
+            const name = input.value.trim();
+            
+            if (name !== "") {
+                myUserName = name;
+                localStorage.setItem('matchMasterUserName', myUserName); // Lo guarda en la memoria del navegador
+                closeIdentity();
+                simulateConnectionAndOpenChat();
+            } else {
+                // Alerta visual si intenta guardar vacío
+                input.classList.add('border-red-500');
+                setTimeout(() => input.classList.remove('border-red-500'), 1000);
+            }
+        }
+
+        function handleIdentityKeyPress(event) {
+            if (event.key === 'Enter') {
+                saveIdentity();
+            }
+        }
+
+        // Simula la conexión y abre el Chat
+        function simulateConnectionAndOpenChat() {
             const originalText = connectBtn.innerHTML;
             connectBtn.innerHTML = "⏳ Iniciando chat...";
             connectBtn.classList.add('btn-loading');
@@ -310,44 +381,42 @@
             });
             
             setTimeout(() => {
-                // Restauramos el botón
                 connectBtn.innerHTML = originalText;
                 connectBtn.classList.remove('btn-loading');
                 matchCard.style.animation = 'float-card 4s ease-in-out infinite';
                 
-                // Abrimos el chat
                 openChat();
             }, 1000);
-        });
+        }
 
         function openChat() {
-            // Preparamos los datos del usuario en la ventana
             document.getElementById('chatName').innerText = currentUserName;
             document.getElementById('chatAvatar').innerText = currentUserPhoto;
             
-            // Limpiamos mensajes anteriores y ponemos un saludo inicial automático
             const chatMessages = document.getElementById('chatMessages');
             chatMessages.innerHTML = `
                 <div class="flex flex-col items-center justify-center my-6">
-                    <span class="text-[10px] text-slate-400 bg-white/5 px-3 py-1 rounded-full">Hoy</span>
+                    <span class="text-[10px] text-slate-400 bg-white/5 px-3 py-1 rounded-full font-bold uppercase tracking-wider">Hoy</span>
                 </div>
                 <div class="flex items-start gap-3 w-4/5">
                     <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-cyan-400 to-blue-600 flex-shrink-0 flex items-center justify-center text-xs">
                         ${currentUserPhoto}
                     </div>
                     <div class="bg-white/10 border border-white/5 rounded-2xl rounded-tl-sm px-4 py-2 text-sm text-slate-200 shadow-md">
-                        ¡Hola! Vi que también estás en MatchMaster. ¿De qué te gustaría hablar hoy? 🚀
+                        ¡Hola ${myUserName}! Vi que también estás en MatchMaster. ¿De qué te gustaría hablar hoy? 🚀
                     </div>
                 </div>
             `;
 
-            // Mostramos el modal con animación
             chatModal.classList.remove('hidden');
             setTimeout(() => {
                 chatModal.classList.remove('opacity-0');
                 chatBox.classList.remove('scale-95');
                 chatBox.classList.add('scale-100');
             }, 10);
+            
+            // Pone el cursor directo en la barra de escribir
+            setTimeout(() => { document.getElementById('chatInput').focus(); }, 300);
         }
 
         function closeChat() {
@@ -359,7 +428,6 @@
             }, 300);
         }
 
-        // Función para enviar mensaje simulado
         function sendChatMessage() {
             const input = document.getElementById('chatInput');
             const message = input.value.trim();
@@ -367,23 +435,21 @@
             if (message !== "") {
                 const chatMessages = document.getElementById('chatMessages');
                 
-                // Agregamos el mensaje del usuario (a la derecha)
+                // Agregamos el mensaje del usuario con su nombre arriba
                 chatMessages.innerHTML += `
-                    <div class="flex items-start gap-3 w-4/5 ml-auto justify-end">
+                    <div class="flex flex-col items-end w-4/5 ml-auto">
+                        <span class="text-[10px] text-slate-400 mb-1 pr-1 font-bold">${myUserName} (Tú)</span>
                         <div class="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl rounded-tr-sm px-4 py-2 text-sm text-white shadow-md">
                             ${message}
                         </div>
                     </div>
                 `;
                 
-                input.value = ""; // Limpiamos el campo
-                
-                // Hacemos scroll hacia abajo
+                input.value = ""; 
                 chatMessages.scrollTop = chatMessages.scrollHeight;
             }
         }
 
-        // Permite enviar mensaje presionando la tecla "Enter"
         function handleKeyPress(event) {
             if (event.key === 'Enter') {
                 sendChatMessage();

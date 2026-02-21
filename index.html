@@ -173,7 +173,7 @@
                     </div>
                     <div>
                         <h4 id="chatName" class="font-bold text-white leading-none">Cargando...</h4>
-                        <p class="text-[11px] text-green-400 font-medium mt-1 flex items-center gap-1">
+                        <p id="chatStatusText" class="text-[11px] text-green-400 font-medium mt-1 flex items-center gap-1">
                             <span class="w-1.5 h-1.5 rounded-full bg-green-500 inline-block"></span> En línea
                         </p>
                     </div>
@@ -201,7 +201,7 @@
 
     <script>
         // ==========================================
-        // 2. CONFIGURACIÓN DE FIREBASE (YA CONFIGURADA)
+        // CONFIGURACIÓN DE FIREBASE 
         // ==========================================
         const firebaseConfig = {
             apiKey: "AIzaSyAKuWuseeobjUnGM2v5ycrR9pq5GIs1qUg",
@@ -213,10 +213,80 @@
             appId: "1:431261424438:web:94157e6c15534988c37197"
         };
         
-        // Inicializamos la base de datos de chat
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
-        let currentRoomRef = null; // Guardará la sala de chat actual
+        let currentRoomRef = null; 
+        
+        // ==========================================
+        // NUEVO: SISTEMA DE PRESENCIA (ONLINE/OFFLINE)
+        // ==========================================
+        let activePresences = {}; // Aquí guardaremos quién está conectado
+
+        // Escuchamos a todos los usuarios conectados en tiempo real
+        db.ref('presence').on('value', (snapshot) => {
+            activePresences = snapshot.val() || {};
+            
+            // Si ya cargaron los datos de Sheets, actualizamos la interfaz
+            if (allUsersData.length > 0) {
+                renderSidebar(allUsersData);
+                updateMainCardPresence(); 
+                updateChatPresence();
+            }
+        });
+
+        // Función para conectar NUESTRO estado a Firebase
+        function setupMyPresence() {
+            if (!myUserName) return;
+            
+            const myPresenceRef = db.ref('presence/' + myUserName);
+            const connectedRef = db.ref('.info/connected'); // Magia de Firebase que sabe si hay internet
+            
+            connectedRef.on('value', (snap) => {
+                if (snap.val() === true) {
+                    // Si me desconecto, bórralo
+                    myPresenceRef.onDisconnect().remove().then(() => {
+                        // Si estoy conectado, ponlo en online
+                        myPresenceRef.set('online');
+                    });
+                }
+            });
+        }
+
+        // Función auxiliar para saber si un usuario del Excel está online
+        function isUserOnline(fullName) {
+            if (!fullName) return false;
+            const firstName = fullName.split(' ')[0]; // Comparamos por el primer nombre
+            // Es online si su primer nombre o nombre completo está en la lista de activos
+            return activePresences[firstName] === 'online' || activePresences[fullName] === 'online';
+        }
+
+        function updateMainCardPresence() {
+            const statusElement = document.getElementById('mainStatus');
+            if (!statusElement || !currentUserName) return;
+            
+            const isOnline = isUserOnline(currentUserName);
+            statusElement.innerHTML = isOnline 
+                ? '<span class="relative flex h-2 w-2 mr-1"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span></span>Online'
+                : '<span class="text-slate-400">Offline</span>';
+            
+            statusElement.className = isOnline 
+                ? "bg-blue-500/30 text-blue-100 text-xs font-black px-3 py-1.5 rounded-full border border-blue-500/50 flex items-center gap-1 transition-colors"
+                : "bg-slate-500/30 text-slate-300 text-xs font-bold px-3 py-1.5 rounded-full border border-slate-500/50 flex items-center gap-1 transition-colors";
+        }
+
+        function updateChatPresence() {
+            const statusText = document.getElementById('chatStatusText');
+            if (!statusText || !currentUserName) return;
+
+            const isOnline = isUserOnline(currentUserName);
+            if(isOnline) {
+                statusText.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-green-500 inline-block"></span> En línea';
+                statusText.className = "text-[11px] text-green-400 font-medium mt-1 flex items-center gap-1";
+            } else {
+                statusText.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-slate-500 inline-block"></span> Desconectado';
+                statusText.className = "text-[11px] text-slate-400 font-medium mt-1 flex items-center gap-1";
+            }
+        }
         // ==========================================
 
         const apiURL = "https://script.google.com/macros/s/AKfycbyU2ANFGImXYoXrIloC2lklFEOqrg3r0w0VWUmzsme3IXiijfz6ABpnRVUQNLruE5za/exec";
@@ -225,9 +295,13 @@
         let currentUserPhoto = "";
         let currentUserPhone = "";
         let currentUserName = "";
-        let currentUserWantToLearn = "";
         
         let myUserName = localStorage.getItem('matchMasterUserName') || "";
+        
+        // Si ya tenía nombre guardado, lo conectamos a presencia
+        if (myUserName) {
+            setupMyPresence();
+        }
 
         async function loadDatabase() {
             try {
@@ -252,9 +326,12 @@
             currentUserPhoto = user.Foto || "👤";
             document.getElementById('mainAvatar').innerText = currentUserPhoto;
             document.getElementById('mainName').innerText = user.Nombre;
-            document.getElementById('mainStatus').innerHTML = user.Estado === "Online" 
-                ? '<span class="relative flex h-2 w-2 mr-1"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span></span>Online'
-                : 'Offline';
+            
+            currentUserName = user.Nombre.split(' ')[0]; 
+            currentUserPhone = user.Telefono;
+
+            // Actualizamos la bolita principal con el sistema en vivo
+            updateMainCardPresence();
 
             const masters = user.Master_En ? user.Master_En.split(',').map(s => s.trim()) : [];
             document.getElementById('mainMasters').innerHTML = masters.map(skill => 
@@ -266,10 +343,6 @@
                 `<span class="bg-blue-600/40 text-white text-xs font-bold px-3 py-1.5 rounded-lg border border-blue-400/50 backdrop-blur-sm">🤖 ${skill}</span>`
             ).join('');
 
-            currentUserPhone = user.Telefono;
-            currentUserName = user.Nombre.split(' ')[0]; 
-            currentUserWantToLearn = learns[0] || "cosas nuevas"; 
-
             const btn = document.getElementById('connectBtn');
             btn.innerHTML = `⚡ Conectar con ${currentUserName}`;
             btn.disabled = false;
@@ -277,7 +350,10 @@
 
         function renderSidebar(users) {
             const validUsers = users.filter(u => u && u.Nombre);
-            document.getElementById('activeCount').innerText = validUsers.length;
+            
+            // Contamos los que están online de verdad
+            const onlineCount = validUsers.filter(u => isUserOnline(u.Nombre)).length;
+            document.getElementById('activeCount').innerText = onlineCount;
 
             const sidebarList = document.getElementById('sidebarList');
             sidebarList.innerHTML = ""; 
@@ -286,7 +362,9 @@
                 const u = users[i];
                 if(!u || !u.Nombre) continue;
 
-                const dotColor = u.Estado === "Online" ? "bg-green-500" : "bg-slate-500";
+                // Verificamos el estado en vivo
+                const isOnline = isUserOnline(u.Nombre);
+                const dotColor = isOnline ? "bg-green-500" : "bg-slate-600";
                 const firstMaster = u.Master_En ? u.Master_En.split(',')[0] : "Varios";
 
                 sidebarList.innerHTML += `
@@ -295,7 +373,7 @@
                         <div class="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center font-bold text-sm text-white">
                             ${u.Foto || "👤"}
                         </div>
-                        <div class="absolute bottom-0 right-0 w-3 h-3 ${dotColor} border-2 border-[#0f172a] rounded-full"></div>
+                        <div class="absolute bottom-0 right-0 w-3 h-3 ${dotColor} border-2 border-[#0f172a] rounded-full transition-colors duration-300"></div>
                     </div>
                     <div>
                         <h4 class="font-bold text-sm text-white leading-none">${u.Nombre}</h4>
@@ -355,6 +433,7 @@
                 myUserName = name;
                 localStorage.setItem('matchMasterUserName', myUserName);
                 closeIdentity();
+                setupMyPresence(); // Conectamos su presencia al guardar el nombre
                 simulateConnectionAndOpenChat();
             } else {
                 input.classList.add('border-red-500');
@@ -384,6 +463,7 @@
         function openChat() {
             document.getElementById('chatName').innerText = currentUserName;
             document.getElementById('chatAvatar').innerText = currentUserPhoto;
+            updateChatPresence(); // Verificamos si está online al abrir el chat
             
             const chatMessages = document.getElementById('chatMessages');
             chatMessages.innerHTML = `
@@ -392,18 +472,14 @@
                 </div>
             `;
 
-            // 3. LÓGICA DE FIREBASE: Escuchar mensajes en tiempo real
-            if (currentRoomRef) currentRoomRef.off(); // Desconectamos de la sala anterior
+            if (currentRoomRef) currentRoomRef.off();
             
-            // Creamos un ID único para la sala usando el teléfono del Master
             const roomID = `chats/room_${currentUserPhone}_general`;
             currentRoomRef = db.ref(roomID);
 
-            // Escuchamos cada vez que se agregue un mensaje a la base de datos
             currentRoomRef.on('child_added', (snapshot) => {
                 const data = snapshot.val();
                 
-                // Si el mensaje lo envié yo (Derecha)
                 if(data.sender === myUserName) {
                     chatMessages.innerHTML += `
                         <div class="flex flex-col items-end w-4/5 ml-auto">
@@ -414,7 +490,6 @@
                         </div>
                     `;
                 } else {
-                    // Si el mensaje lo envió el Master u otra persona (Izquierda)
                     chatMessages.innerHTML += `
                         <div class="flex items-start gap-3 w-4/5">
                             <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-cyan-400 to-blue-600 flex-shrink-0 flex items-center justify-center text-xs text-white font-bold">
@@ -429,7 +504,7 @@
                         </div>
                     `;
                 }
-                chatMessages.scrollTop = chatMessages.scrollHeight; // Auto-scroll
+                chatMessages.scrollTop = chatMessages.scrollHeight; 
             });
 
             chatModal.classList.remove('hidden');
@@ -454,7 +529,6 @@
             const message = input.value.trim();
             
             if (message !== "") {
-                // 4. LÓGICA DE FIREBASE: Enviar el mensaje a la base de datos
                 currentRoomRef.push({
                     sender: myUserName,
                     text: message,
@@ -467,7 +541,6 @@
 
         function handleKeyPress(event) { if (event.key === 'Enter') sendChatMessage(); }
 
-        // Truco para móviles: asegurar que el último mensaje se vea al abrir el teclado
         document.getElementById('chatInput').addEventListener('focus', function() {
             setTimeout(() => {
                 const chatMessages = document.getElementById('chatMessages');

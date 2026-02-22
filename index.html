@@ -128,8 +128,12 @@
             </div>
         </main>
 
-        <aside class="w-full md:w-80 glass-sidebar rounded-3xl p-6 md:sticky md:top-8 mb-8 md:mb-0">
-            <div class="flex items-center justify-between mb-6">
+        <aside class="w-full md:w-80 glass-sidebar rounded-3xl p-6 md:sticky md:top-8 mb-8 md:mb-0 relative">
+            <button id="toggleColleaguesBtn" onclick="toggleMasterView()" class="absolute -top-4 right-4 hidden bg-gradient-to-r from-purple-600 to-pink-600 text-white text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-full shadow-lg hover:scale-105 transition-transform border border-white/20">
+                👥 Ver Colegas
+            </button>
+
+            <div class="flex items-center justify-between mb-6 mt-2">
                 <h3 id="sidebarTitle" class="font-bold text-lg text-white flex items-center gap-2">
                     Masters Activos
                     <span id="activeCount" class="bg-green-500/20 text-green-400 text-xs px-2 py-0.5 rounded-full border border-green-500/30">0</span>
@@ -227,13 +231,15 @@
         // ==========================================
         // VARIABLES GLOBALES Y ROLES
         // ==========================================
-        let currentUserData = null; // Quien está logueado en Google
-        let myMasterProfile = null; // Si el logueado es un Técnico (Master), se guarda aquí
+        let currentUserData = null; 
+        let myMasterProfile = null; 
         
         let allUsersData = []; 
         let currentSelectedMasterPhone = "";
         let currentSelectedMasterName = "";
         let currentSelectedMasterPhoto = "";
+
+        let isViewingColleagues = false; // Variable para saber en qué vista está el Master
 
         // ==========================================
         // ESTADO DE AUTENTICACIÓN (GOOGLE)
@@ -247,11 +253,13 @@
                 document.getElementById('userProfileName').innerText = user.displayName.split(' ')[0]; 
                 
                 setupMyPresence();
-                checkRoleAndRender(); // Verificamos si es Master o Cliente
+                checkRoleAndRender();
             } else {
                 currentUserData = null;
                 myMasterProfile = null;
+                isViewingColleagues = false;
                 document.getElementById('userProfileHeader').classList.add('hidden');
+                document.getElementById('toggleColleaguesBtn').classList.add('hidden');
                 checkRoleAndRender();
             }
         });
@@ -259,7 +267,6 @@
         function loginWithGoogle() {
             auth.signInWithPopup(provider).then(() => {
                 closeLogin();
-                // Si es un cliente, abrimos el chat automáticamente. Si es master, lo mandamos a su panel.
                 setTimeout(() => {
                     if(!myMasterProfile) simulateConnectionAndOpenChat();
                 }, 1000);
@@ -283,16 +290,16 @@
                 return;
             }
 
-            // Buscar si el nombre de Google coincide con el nombre en Google Sheets
             const firstNameGoogle = currentUserData.nombre.split(' ')[0].toLowerCase();
             myMasterProfile = allUsersData.find(master => 
                 master.Nombre && master.Nombre.toLowerCase().includes(firstNameGoogle)
             );
 
             if (myMasterProfile) {
-                renderMasterDashboard(); // Es Técnico -> Mostrar Bandeja de entrada
+                document.getElementById('toggleColleaguesBtn').classList.remove('hidden'); // Mostrar botón
+                renderMasterDashboard(); 
             } else {
-                renderClientView(allUsersData); // Es Cliente -> Mostrar lista de técnicos
+                renderClientView(allUsersData); 
             }
         }
 
@@ -300,6 +307,10 @@
         // VISTA DEL TÉCNICO (DASHBOARD MASTER)
         // ==========================================
         function renderMasterDashboard() {
+            isViewingColleagues = false;
+            document.getElementById('toggleColleaguesBtn').innerHTML = "👥 Ver Colegas";
+            document.getElementById('toggleColleaguesBtn').className = "absolute -top-4 right-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-full shadow-lg hover:scale-105 transition-transform border border-white/20";
+
             document.getElementById('mainTitle').innerHTML = `Bienvenido Master,<br><span class="text-gradient">${myMasterProfile.Nombre.split(' ')[0]}.</span>`;
             document.getElementById('mainSubtitle').innerText = "Tu Panel de Control";
             document.getElementById('mainDescription').innerText = "Aquí tienes tu bandeja de entrada privada. Selecciona un cliente en el panel lateral para responder a sus consultas.";
@@ -308,8 +319,9 @@
             document.getElementById('sidebarPulse').innerText = "Privado";
             document.getElementById('sidebarPromo').style.display = 'none';
 
-            // Escuchar todos los chats vinculados al número de este técnico
+            // Escuchar chats de clientes
             db.ref(`chats/${myMasterProfile.Telefono}`).on('value', (snapshot) => {
+                if (isViewingColleagues) return; // Si está viendo colegas, no repintar esto
                 const clients = snapshot.val() || {};
                 const sidebarList = document.getElementById('sidebarList');
                 const numClients = Object.keys(clients).length;
@@ -323,9 +335,8 @@
                 for (const clientUid in clients) {
                     const messages = clients[clientUid];
                     const msgKeys = Object.keys(messages);
-                    const lastMsg = messages[msgKeys[msgKeys.length - 1]]; // Último mensaje
+                    const lastMsg = messages[msgKeys[msgKeys.length - 1]]; 
                     
-                    // Extraer info del cliente
                     const clientName = lastMsg.uid === myMasterProfile.uid ? "Cliente (Tú respondiste)" : lastMsg.sender; 
                     const clientFoto = lastMsg.uid === myMasterProfile.uid ? "👤" : (lastMsg.foto || "👤");
 
@@ -343,7 +354,7 @@
                 }
             });
 
-            // Cambiar la tarjeta principal
+            // Tarjeta principal (Inbox)
             const matchCard = document.getElementById('matchCard');
             matchCard.style.opacity = '1';
             matchCard.style.animation = 'float-card 4s ease-in-out infinite';
@@ -354,6 +365,38 @@
                     <p class="text-sm text-slate-300">Selecciona un chat del panel lateral para comenzar a ayudar a tus clientes.</p>
                 </div>
             `;
+        }
+
+        // ==========================================
+        // VISTA DE COLEGAS (SOLO PARA MASTERS)
+        // ==========================================
+        function toggleMasterView() {
+            if (!myMasterProfile) return;
+
+            isViewingColleagues = !isViewingColleagues;
+
+            if (isViewingColleagues) {
+                // Modo Colegas
+                document.getElementById('toggleColleaguesBtn').innerHTML = "📬 Volver a mis chats";
+                document.getElementById('toggleColleaguesBtn').className = "absolute -top-4 right-4 bg-gradient-to-r from-blue-600 to-cyan-600 text-white text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-full shadow-lg hover:scale-105 transition-transform border border-white/20";
+                
+                document.getElementById('mainTitle').innerHTML = `Directorio de<br><span class="text-gradient">Colegas.</span>`;
+                document.getElementById('mainDescription').innerText = "Conecta con otros Masters y técnicos para hacer networking o pedir ayuda en un proyecto.";
+                
+                // Mostrar a los otros masters (excluyéndome a mí mismo)
+                const colleagues = allUsersData.filter(u => u && u.Telefono !== myMasterProfile.Telefono);
+                renderSidebar(colleagues); // Usamos la misma función de sidebar
+                
+                // Resetear tarjeta
+                if(colleagues.length > 0) {
+                    renderMainCard(colleagues[0]);
+                } else {
+                    document.getElementById('cardContent').innerHTML = `<p class="text-center text-slate-300 p-6">No hay otros colegas disponibles.</p>`;
+                }
+            } else {
+                // Volver a Bandeja de Entrada
+                renderMasterDashboard();
+            }
         }
 
         // ==========================================
@@ -369,6 +412,34 @@
         function renderMainCard(user) {
             const matchCard = document.getElementById('matchCard');
             matchCard.classList.remove('opacity-50');
+            
+            // Restaurar estructura de la tarjeta si venimos del Inbox
+            if (document.getElementById('cardContent').innerHTML.includes('📬')) {
+                document.getElementById('cardContent').innerHTML = `
+                    <div class="flex items-center justify-between mb-6">
+                        <div class="flex items-center gap-3">
+                            <div id="mainAvatar" class="w-12 h-12 rounded-full bg-gradient-to-tr from-purple-500 to-pink-500 flex items-center justify-center text-xl font-black shadow-lg text-white">
+                                ⏳
+                            </div>
+                            <div>
+                                <h3 id="mainName" class="font-bold text-xl leading-none text-white">Cargando...</h3>
+                                <p class="text-xs text-blue-100 font-semibold mt-1">Conectando...</p>
+                            </div>
+                        </div>
+                        <div id="mainStatus" class="bg-blue-500/30 text-blue-100 text-xs font-black px-3 py-1.5 rounded-full border border-blue-500/50 flex items-center gap-1">...</div>
+                    </div>
+                    <div class="space-y-4 mb-8">
+                        <div>
+                            <span class="text-[11px] text-slate-200 uppercase font-black tracking-widest">Tengo mucho conocimiento de:</span>
+                            <div id="mainMasters" class="flex flex-wrap gap-2 mt-2"></div>
+                        </div>
+                    </div>
+                    <button id="connectBtn" class="w-full py-4 rounded-2xl bg-gradient-to-r from-blue-600 to-purple-600 font-black text-white shadow-[0_0_20px_rgba(124,58,237,0.4)] hover:shadow-[0_0_30px_rgba(124,58,237,0.6)] transition-all flex items-center justify-center gap-2 text-sm uppercase tracking-wider">
+                        ⚡ Conectar
+                    </button>
+                `;
+            }
+
             currentSelectedMasterPhoto = user.Foto || "👤";
             document.getElementById('mainAvatar').innerText = currentSelectedMasterPhoto;
             document.getElementById('mainName').innerText = user.Nombre;
@@ -391,7 +462,11 @@
         function renderSidebar(users) {
             const validUsers = users.filter(u => u && u.Nombre);
             const onlineCount = validUsers.filter(u => isUserOnline(u.Nombre)).length;
-            document.getElementById('activeCount').innerText = onlineCount;
+            
+            document.getElementById('sidebarTitle').innerHTML = `Masters Activos <span id="activeCount" class="bg-green-500/20 text-green-400 text-xs px-2 py-0.5 rounded-full border border-green-500/30">${onlineCount}</span>`;
+            document.getElementById('sidebarPulse').innerText = "● En vivo";
+            if(document.getElementById('sidebarPromo')) document.getElementById('sidebarPromo').style.display = 'block';
+
             const sidebarList = document.getElementById('sidebarList');
             sidebarList.innerHTML = ""; 
 
@@ -420,12 +495,20 @@
         }
 
         function changeMainCard(index) {
-            if(myMasterProfile) return; // Si es Master, esto no debe hacer nada
+            // Permitir cambio de tarjeta si es Cliente o si es Master viendo Colegas
+            if(myMasterProfile && !isViewingColleagues) return; 
+            
             const matchCard = document.getElementById('matchCard');
             matchCard.style.opacity = '0.5';
             matchCard.style.transform = 'scale(0.95)';
+            
+            let usersToUse = allUsersData;
+            if(isViewingColleagues) {
+                usersToUse = allUsersData.filter(u => u && u.Telefono !== myMasterProfile.Telefono);
+            }
+
             setTimeout(() => {
-                renderMainCard(allUsersData[index]); 
+                renderMainCard(usersToUse[index]); 
                 matchCard.style.opacity = '1';
                 matchCard.style.transform = 'scale(1)';
             }, 200);
@@ -443,7 +526,7 @@
                 const data = await response.json();
                 if(data && data.length > 0) {
                     allUsersData = data; 
-                    checkRoleAndRender(); // Procesar vista según el rol
+                    checkRoleAndRender();
                 }
             } catch (error) {
                 console.error("Error al cargar Google Sheets:", error);
@@ -458,8 +541,14 @@
 
         db.ref('presence').on('value', (snapshot) => {
             activePresences = snapshot.val() || {};
-            if (allUsersData.length > 0 && !myMasterProfile) {
-                renderSidebar(allUsersData);
+            // Repintar sidebar de clientes o colegas según la vista actual
+            if (allUsersData.length > 0) {
+                if(!myMasterProfile) {
+                    renderSidebar(allUsersData);
+                } else if (isViewingColleagues) {
+                    const colleagues = allUsersData.filter(u => u && u.Telefono !== myMasterProfile.Telefono);
+                    renderSidebar(colleagues);
+                }
                 updateMainCardPresence(); 
             }
             updateChatPresence();
@@ -510,14 +599,13 @@
         }
 
         // ==========================================
-        // SISTEMA DE CHAT PRIVADO
+        // SISTEMA DE CHAT PRIVADO E INTERNO
         // ==========================================
         const chatModal = document.getElementById('chatModal');
         const chatBox = document.getElementById('chatBox');
         const loginModal = document.getElementById('loginModal');
         const loginBox = document.getElementById('loginBox');
 
-        // Solo se aplica si la persona da clic en la tarjeta central (Clientes)
         document.addEventListener('click', function(e) {
             if(e.target && e.target.id === 'connectBtn') {
                 if (!currentUserData) openLogin();
@@ -557,10 +645,16 @@
                 connectBtn.innerHTML = originalText;
                 connectBtn.classList.remove('btn-loading');
                 matchCard.style.animation = 'float-card 4s ease-in-out infinite';
-                openChatAsClient();
+                
+                if (isViewingColleagues && myMasterProfile) {
+                    openChatWithColleague();
+                } else {
+                    openChatAsClient();
+                }
             }, 1000);
         }
 
+        // Cliente conectando con Técnico
         function openChatAsClient() {
             document.getElementById('chatName').innerText = currentSelectedMasterName;
             document.getElementById('chatAvatar').innerText = currentSelectedMasterPhoto;
@@ -574,8 +668,6 @@
             `;
 
             if (currentRoomRef) currentRoomRef.off();
-            
-            // LA MAGIA: SALA PRIVADA. Usa el teléfono del Master y el UID del Cliente.
             const roomID = `chats/${currentSelectedMasterPhone}/${currentUserData.uid}`;
             currentRoomRef = db.ref(roomID);
 
@@ -583,6 +675,7 @@
             showChatModal();
         }
 
+        // Técnico viendo su Inbox
         function openChatAsMaster(clientUid, clientName, clientFoto) {
             document.getElementById('chatName').innerText = clientName;
             
@@ -602,9 +695,31 @@
             `;
 
             if (currentRoomRef) currentRoomRef.off();
-            
-            // LA MAGIA: El Master abre la misma sala usando su teléfono y el UID del cliente seleccionado.
             const roomID = `chats/${myMasterProfile.Telefono}/${clientUid}`;
+            currentRoomRef = db.ref(roomID);
+
+            listenToChatRoom(chatMessages);
+            showChatModal();
+        }
+
+        // NUEVO: Técnico hablando con otro Técnico (Colega)
+        function openChatWithColleague() {
+            document.getElementById('chatName').innerText = currentSelectedMasterName;
+            document.getElementById('chatAvatar').innerText = currentSelectedMasterPhoto;
+            updateChatPresence(); 
+            
+            const chatMessages = document.getElementById('chatMessages');
+            chatMessages.innerHTML = `
+                <div class="flex flex-col items-center justify-center my-6">
+                    <span class="text-[10px] text-slate-400 bg-white/5 px-3 py-1 rounded-full font-bold uppercase tracking-wider">Chat Interno (Colegas)</span>
+                </div>
+            `;
+
+            if (currentRoomRef) currentRoomRef.off();
+            
+            // LA MAGIA: Creamos un ID único combinando ambos teléfonos en orden alfabético para que sea la misma sala para los dos
+            const phones = [myMasterProfile.Telefono, currentSelectedMasterPhone].sort();
+            const roomID = `chats_internos/${phones[0]}_${phones[1]}`;
             currentRoomRef = db.ref(roomID);
 
             listenToChatRoom(chatMessages);

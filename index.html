@@ -92,7 +92,7 @@
             <p class="signature-font text-2xl text-slate-300 mb-6 ml-2 transform -rotate-2">by Belliard</p>
 
             <p class="text-slate-300 text-lg md:text-xl max-w-xl mb-12 font-medium leading-relaxed">
-                La red exclusiva para conectar con Masters, compartir conocimientos y aprender nuevas habilidades. 🚀
+                La red exclusiva para conectar con Masters y técnicos, compartir conocimientos, aprender nuevas habilidades y agendar citas con técnicos profesionales para solucionar trabajos del hogar. 🚀
             </p>
 
             <div id="matchCard" class="w-full max-w-sm bg-white/10 backdrop-blur-xl border border-white/20 rounded-[2rem] p-6 shadow-2xl floating-card text-left transition-all duration-300 hover:scale-105 cursor-pointer mx-auto md:mx-0 opacity-50">
@@ -116,11 +116,6 @@
                     <div>
                         <span class="text-[11px] text-slate-200 uppercase font-black tracking-widest">Tengo mucho conocimiento de:</span>
                         <div id="mainMasters" class="flex flex-wrap gap-2 mt-2">
-                        </div>
-                    </div>
-                    <div>
-                        <span class="text-[11px] text-slate-200 uppercase font-black tracking-widest">Quiero aprender de:</span>
-                        <div id="mainLearns" class="flex flex-wrap gap-2 mt-2">
                         </div>
                     </div>
                 </div>
@@ -379,11 +374,6 @@
                 `<span class="bg-purple-600/40 text-white text-xs font-bold px-3 py-1.5 rounded-lg border border-purple-400/50 backdrop-blur-sm">⚡ ${skill}</span>`
             ).join('');
 
-            const learns = user.Quiere_Aprender ? user.Quiere_Aprender.split(',').map(s => s.trim()) : [];
-            document.getElementById('mainLearns').innerHTML = learns.map(skill => 
-                `<span class="bg-blue-600/40 text-white text-xs font-bold px-3 py-1.5 rounded-lg border border-blue-400/50 backdrop-blur-sm">🤖 ${skill}</span>`
-            ).join('');
-
             const btn = document.getElementById('connectBtn');
             btn.innerHTML = `⚡ Conectar con ${currentUserName}`;
             btn.disabled = false;
@@ -486,7 +476,7 @@
             const chatMessages = document.getElementById('chatMessages');
             chatMessages.innerHTML = `
                 <div class="flex flex-col items-center justify-center my-6">
-                    <span class="text-[10px] text-slate-400 bg-white/5 px-3 py-1 rounded-full font-bold uppercase tracking-wider">Historial de Chat de la Comunidad</span>
+                    <span class="text-[10px] text-slate-400 bg-white/5 px-3 py-1 rounded-full font-bold uppercase tracking-wider">Historial de Chat</span>
                 </div>
             `;
 
@@ -512,7 +502,7 @@
                         </div>
                     `;
                 } else {
-                    // Si el mensaje es de otro (o del master)
+                    // Si el mensaje es de otro (o del master/técnico)
                     chatMessages.innerHTML += `
                         <div class="flex items-start gap-2 w-full mt-2">
                             <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-cyan-400 to-blue-600 flex-shrink-0 flex items-center justify-center text-xs text-white font-bold border border-white/20 mt-4 overflow-hidden">
@@ -552,11 +542,11 @@
             const message = input.value.trim();
             
             if (message !== "" && currentUserData) {
-                // Ahora enviamos todos los datos jugosos a Firebase
+                // Ahora enviamos todos los datos a Firebase
                 currentRoomRef.push({
                     uid: currentUserData.uid,
                     sender: currentUserData.nombre,
-                    foto: currentUserData.foto, // <-- Guardamos la foto en el mensaje!
+                    foto: currentUserData.foto, // <-- Guardamos la foto en el mensaje
                     text: message,
                     timestamp: firebase.database.ServerValue.TIMESTAMP
                 });

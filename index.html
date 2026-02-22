@@ -10,62 +10,53 @@
     
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
 
     <style>
-        /* NUEVO: html y body combinados para evitar rebotes y scroll horizontal */
         html, body {
             font-family: 'Outfit', sans-serif;
             background-color: #0f172a;
             overflow-x: hidden;
-            overscroll-behavior-x: none; /* Evita el rebote lateral en móviles */
+            overscroll-behavior-x: none;
             width: 100vw;
             margin: 0;
             padding: 0;
         }
-
         .signature-font { font-family: 'Dancing Script', cursive; }
-
         .aura-purple {
             position: absolute; top: -10%; left: -10%; width: 600px; height: 600px;
             background: rgba(147, 51, 234, 0.3); border-radius: 50%; filter: blur(140px);
             animation: float-aura 7s infinite alternate ease-in-out; z-index: 0;
         }
-
         .aura-blue {
             position: absolute; bottom: -10%; right: -10%; width: 600px; height: 600px;
             background: rgba(59, 130, 246, 0.3); border-radius: 50%; filter: blur(140px);
             animation: float-aura 9s infinite alternate-reverse ease-in-out; z-index: 0;
         }
-
         @keyframes float-aura {
             0% { transform: translate(0, 0) scale(1); }
             100% { transform: translate(60px, 60px) scale(1.1); }
         }
-
         .floating-card { animation: float-card 4s ease-in-out infinite; }
         @keyframes float-card {
             0%, 100% { transform: translateY(0px) rotate(-1deg); }
             50% { transform: translateY(-12px) rotate(1deg); }
         }
-
         .text-gradient {
             background: linear-gradient(to right, #3b82f6, #a855f7, #ec4899);
             -webkit-background-clip: text; -webkit-text-fill-color: transparent;
             background-size: 200% auto; animation: shine 3s linear infinite;
         }
         @keyframes shine { to { background-position: 200% center; } }
-
         .btn-loading {
             pointer-events: none; opacity: 0.8;
             background: linear-gradient(to right, #4b5563, #6b7280) !important;
             box-shadow: none !important;
         }
-
         .glass-sidebar {
             background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(16px);
             border: 1px solid rgba(255, 255, 255, 0.1);
         }
-
         .chat-scroll::-webkit-scrollbar { width: 6px; }
         .chat-scroll::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.02); }
         .chat-scroll::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
@@ -73,10 +64,16 @@
 </head>
 <body class="text-white min-h-screen relative flex items-center justify-center p-4 md:p-8">
 
+    <div id="userProfileHeader" class="fixed top-4 right-4 z-40 hidden bg-white/10 backdrop-blur-md border border-white/20 rounded-full px-4 py-2 flex items-center gap-3 shadow-xl transition-all">
+        <img id="userProfilePic" src="" alt="Perfil" class="w-8 h-8 rounded-full border border-white/50 object-cover">
+        <span id="userProfileName" class="text-sm font-bold text-white hidden md:inline"></span>
+        <button onclick="logoutGoogle()" class="text-[11px] text-red-400 hover:text-red-300 font-black ml-2 uppercase tracking-wider bg-white/5 px-2 py-1 rounded-lg">Salir</button>
+    </div>
+
     <div class="aura-purple"></div>
     <div class="aura-blue"></div>
 
-    <div class="relative z-10 w-full max-w-6xl mx-auto flex flex-col md:flex-row gap-8 items-start justify-center">
+    <div class="relative z-10 w-full max-w-6xl mx-auto flex flex-col md:flex-row gap-8 items-start justify-center pt-10 md:pt-0">
 
         <main class="flex-1 flex flex-col items-center md:items-start text-center md:text-left max-w-2xl">
             
@@ -142,11 +139,9 @@
                 </h3>
                 <span class="text-xs text-slate-300 animate-pulse">● En vivo</span>
             </div>
-
             <div id="sidebarList" class="space-y-4">
                 <p class="text-xs text-slate-300 text-center">Buscando compañeros...</p>
             </div>
-
             <div class="mt-8 p-4 bg-gradient-to-r from-purple-500/20 to-blue-500/20 rounded-2xl border border-purple-500/30 text-center">
                 <p class="text-xs font-bold text-purple-200 mb-1">🔥 Racha Semanal</p>
                 <p class="text-[11px] text-slate-200">¡La comunidad está creciendo!</p>
@@ -155,16 +150,23 @@
 
     </div>
 
-    <div id="identityModal" class="fixed inset-0 z-[60] hidden bg-[#0f172a]/90 backdrop-blur-md flex items-center justify-center p-4 opacity-0 transition-opacity duration-300">
-        <div class="w-full max-w-sm bg-[#1e293b] border border-white/10 rounded-[2rem] shadow-2xl p-6 text-center transform scale-95 transition-transform duration-300" id="identityBox">
-            <div class="text-5xl mb-4">👋</div>
-            <h3 class="text-xl font-black text-white mb-2">¿Cómo te llamas?</h3>
-            <p class="text-sm text-slate-300 mb-6 font-medium">Para chatear con los Masters, necesitamos saber tu nombre.</p>
-            <input type="text" id="myNameInput" placeholder="Ej. Carlos, Ana..." class="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white text-[16px] focus:outline-none focus:border-purple-500 transition-colors mb-4 text-center font-bold" onkeypress="handleIdentityKeyPress(event)">
-            <button onclick="saveIdentity()" class="w-full py-3 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 font-bold text-white shadow-[0_0_15px_rgba(124,58,237,0.3)] hover:scale-105 transition-transform">
-                Entrar al Chat
+    <div id="loginModal" class="fixed inset-0 z-[60] hidden bg-[#0f172a]/90 backdrop-blur-md flex items-center justify-center p-4 opacity-0 transition-opacity duration-300">
+        <div class="w-full max-w-sm bg-[#1e293b] border border-white/10 rounded-[2rem] shadow-2xl p-8 text-center transform scale-95 transition-transform duration-300" id="loginBox">
+            <div class="text-5xl mb-6">🚀</div>
+            <h3 class="text-2xl font-black text-white mb-2">Bienvenido</h3>
+            <p class="text-sm text-slate-300 mb-8 font-medium">Únete para conversar con los Masters.</p>
+            
+            <button onclick="loginWithGoogle()" class="w-full py-3.5 rounded-xl bg-white text-gray-800 font-bold shadow-lg hover:scale-105 transition-transform flex items-center justify-center gap-3">
+                <svg class="w-5 h-5" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.58c2.08-1.92 3.27-4.74 3.27-8.09z"/>
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                </svg>
+                Continuar con Google
             </button>
-            <button onclick="closeIdentity()" class="mt-4 text-xs font-bold text-slate-400 hover:text-white transition-colors uppercase tracking-wider">Cancelar</button>
+
+            <button onclick="closeLogin()" class="mt-6 text-xs font-bold text-slate-400 hover:text-white transition-colors uppercase tracking-wider">Cancelar</button>
         </div>
     </div>
 
@@ -173,7 +175,7 @@
             
             <div class="p-4 bg-white/5 border-b border-white/10 flex items-center justify-between">
                 <div class="flex items-center gap-3">
-                    <div id="chatAvatar" class="w-10 h-10 rounded-full bg-gradient-to-tr from-purple-500 to-pink-500 flex items-center justify-center font-bold text-white shadow-lg">
+                    <div id="chatAvatar" class="w-10 h-10 rounded-full bg-gradient-to-tr from-purple-500 to-pink-500 flex items-center justify-center font-bold text-white shadow-lg text-xl">
                         👤
                     </div>
                     <div>
@@ -220,8 +222,58 @@
         
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
+        const auth = firebase.auth();
+        const provider = new firebase.auth.GoogleAuthProvider();
+
         let currentRoomRef = null; 
         
+        // ==========================================
+        // ESTADO DE AUTENTICACIÓN (GOOGLE)
+        // ==========================================
+        let currentUserData = null; // Guardaremos {uid, nombre, foto}
+
+        auth.onAuthStateChanged((user) => {
+            if (user) {
+                // El usuario está logueado
+                currentUserData = {
+                    uid: user.uid,
+                    nombre: user.displayName,
+                    foto: user.photoURL
+                };
+                
+                // Mostrar su perfil arriba a la derecha
+                document.getElementById('userProfileHeader').classList.remove('hidden');
+                document.getElementById('userProfilePic').src = user.photoURL;
+                document.getElementById('userProfileName').innerText = user.displayName.split(' ')[0]; // Solo primer nombre
+                
+                setupMyPresence();
+            } else {
+                // No hay nadie logueado
+                currentUserData = null;
+                document.getElementById('userProfileHeader').classList.add('hidden');
+            }
+        });
+
+        function loginWithGoogle() {
+            auth.signInWithPopup(provider)
+            .then((result) => {
+                closeLogin();
+                simulateConnectionAndOpenChat();
+            }).catch((error) => {
+                console.error("Error al iniciar sesión: ", error);
+            });
+        }
+
+        function logoutGoogle() {
+            auth.signOut().then(() => {
+                // Borramos presencia y recargamos UI
+                if (currentUserData) {
+                    db.ref('presence/' + currentUserData.uid).remove();
+                }
+                alert("Has cerrado sesión correctamente.");
+            });
+        }
+
         // ==========================================
         // SISTEMA DE PRESENCIA (ONLINE/OFFLINE)
         // ==========================================
@@ -229,7 +281,6 @@
 
         db.ref('presence').on('value', (snapshot) => {
             activePresences = snapshot.val() || {};
-            
             if (allUsersData.length > 0) {
                 renderSidebar(allUsersData);
                 updateMainCardPresence(); 
@@ -238,35 +289,40 @@
         });
 
         function setupMyPresence() {
-            if (!myUserName) return;
-            
-            const myPresenceRef = db.ref('presence/' + myUserName);
+            if (!currentUserData) return;
+            // Usamos el UID de Google para mayor precisión, pero guardamos el estado
+            const myPresenceRef = db.ref('presence/' + currentUserData.uid);
             const connectedRef = db.ref('.info/connected'); 
             
             connectedRef.on('value', (snap) => {
                 if (snap.val() === true) {
                     myPresenceRef.onDisconnect().remove().then(() => {
-                        myPresenceRef.set('online');
+                        myPresenceRef.set({
+                            status: 'online',
+                            nombre: currentUserData.nombre
+                        });
                     });
                 }
             });
         }
 
-        function isUserOnline(fullName) {
-            if (!fullName) return false;
-            const firstName = fullName.split(' ')[0];
-            return activePresences[firstName] === 'online' || activePresences[fullName] === 'online';
+        function isUserOnline(masterName) {
+            // Buscamos si el master está en la lista de presencias por nombre (como fallback)
+            for (const key in activePresences) {
+                if (activePresences[key].nombre && activePresences[key].nombre.includes(masterName.split(' ')[0])) {
+                    return true;
+                }
+            }
+            return false;
         }
 
         function updateMainCardPresence() {
             const statusElement = document.getElementById('mainStatus');
             if (!statusElement || !currentUserName) return;
-            
             const isOnline = isUserOnline(currentUserName);
             statusElement.innerHTML = isOnline 
                 ? '<span class="relative flex h-2 w-2 mr-1"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span></span>Online'
                 : '<span class="text-slate-400">Offline</span>';
-            
             statusElement.className = isOnline 
                 ? "bg-blue-500/30 text-blue-100 text-xs font-black px-3 py-1.5 rounded-full border border-blue-500/50 flex items-center gap-1 transition-colors"
                 : "bg-slate-500/30 text-slate-300 text-xs font-bold px-3 py-1.5 rounded-full border border-slate-500/50 flex items-center gap-1 transition-colors";
@@ -275,7 +331,6 @@
         function updateChatPresence() {
             const statusText = document.getElementById('chatStatusText');
             if (!statusText || !currentUserName) return;
-
             const isOnline = isUserOnline(currentUserName);
             if(isOnline) {
                 statusText.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-green-500 inline-block"></span> En línea';
@@ -293,18 +348,11 @@
         let currentUserPhoto = "";
         let currentUserPhone = "";
         let currentUserName = "";
-        
-        let myUserName = localStorage.getItem('matchMasterUserName') || "";
-        
-        if (myUserName) {
-            setupMyPresence();
-        }
 
         async function loadDatabase() {
             try {
                 const response = await fetch(apiURL);
                 const data = await response.json();
-                
                 if(data && data.length > 0) {
                     allUsersData = data; 
                     renderMainCard(data[0]); 
@@ -319,14 +367,11 @@
         function renderMainCard(user) {
             const matchCard = document.getElementById('matchCard');
             matchCard.classList.remove('opacity-50');
-            
             currentUserPhoto = user.Foto || "👤";
             document.getElementById('mainAvatar').innerText = currentUserPhoto;
             document.getElementById('mainName').innerText = user.Nombre;
-            
             currentUserName = user.Nombre.split(' ')[0]; 
             currentUserPhone = user.Telefono;
-
             updateMainCardPresence();
 
             const masters = user.Master_En ? user.Master_En.split(',').map(s => s.trim()) : [];
@@ -346,17 +391,14 @@
 
         function renderSidebar(users) {
             const validUsers = users.filter(u => u && u.Nombre);
-            
             const onlineCount = validUsers.filter(u => isUserOnline(u.Nombre)).length;
             document.getElementById('activeCount').innerText = onlineCount;
-
             const sidebarList = document.getElementById('sidebarList');
             sidebarList.innerHTML = ""; 
 
             for(let i = 0; i < users.length; i++) {
                 const u = users[i];
                 if(!u || !u.Nombre) continue;
-
                 const isOnline = isUserOnline(u.Nombre);
                 const dotColor = isOnline ? "bg-green-500" : "bg-slate-600";
                 const firstMaster = u.Master_En ? u.Master_En.split(',')[0] : "Varios";
@@ -394,48 +436,30 @@
         const matchCard = document.getElementById('matchCard');
         const chatModal = document.getElementById('chatModal');
         const chatBox = document.getElementById('chatBox');
-        
-        const identityModal = document.getElementById('identityModal');
-        const identityBox = document.getElementById('identityBox');
+        const loginModal = document.getElementById('loginModal');
+        const loginBox = document.getElementById('loginBox');
 
         connectBtn.addEventListener('click', function() {
-            if (!myUserName) openIdentity();
+            // Si no hay datos de Google, pedimos Iniciar Sesión
+            if (!currentUserData) openLogin();
             else simulateConnectionAndOpenChat();
         });
 
-        function openIdentity() {
-            identityModal.classList.remove('hidden');
+        function openLogin() {
+            loginModal.classList.remove('hidden');
             setTimeout(() => {
-                identityModal.classList.remove('opacity-0');
-                identityBox.classList.remove('scale-95');
-                identityBox.classList.add('scale-100');
+                loginModal.classList.remove('opacity-0');
+                loginBox.classList.remove('scale-95');
+                loginBox.classList.add('scale-100');
             }, 10);
-            document.getElementById('myNameInput').focus();
         }
 
-        function closeIdentity() {
-            identityModal.classList.add('opacity-0');
-            identityBox.classList.remove('scale-100');
-            identityBox.classList.add('scale-95');
-            setTimeout(() => identityModal.classList.add('hidden'), 300);
+        function closeLogin() {
+            loginModal.classList.add('opacity-0');
+            loginBox.classList.remove('scale-100');
+            loginBox.classList.add('scale-95');
+            setTimeout(() => loginModal.classList.add('hidden'), 300);
         }
-
-        function saveIdentity() {
-            const input = document.getElementById('myNameInput');
-            const name = input.value.trim();
-            if (name !== "") {
-                myUserName = name;
-                localStorage.setItem('matchMasterUserName', myUserName);
-                closeIdentity();
-                setupMyPresence(); 
-                simulateConnectionAndOpenChat();
-            } else {
-                input.classList.add('border-red-500');
-                setTimeout(() => input.classList.remove('border-red-500'), 1000);
-            }
-        }
-
-        function handleIdentityKeyPress(event) { if (event.key === 'Enter') saveIdentity(); }
 
         function simulateConnectionAndOpenChat() {
             const originalText = connectBtn.innerHTML;
@@ -462,7 +486,7 @@
             const chatMessages = document.getElementById('chatMessages');
             chatMessages.innerHTML = `
                 <div class="flex flex-col items-center justify-center my-6">
-                    <span class="text-[10px] text-slate-400 bg-white/5 px-3 py-1 rounded-full font-bold uppercase tracking-wider">Historial de Chat</span>
+                    <span class="text-[10px] text-slate-400 bg-white/5 px-3 py-1 rounded-full font-bold uppercase tracking-wider">Historial de Chat de la Comunidad</span>
                 </div>
             `;
 
@@ -474,24 +498,29 @@
             currentRoomRef.on('child_added', (snapshot) => {
                 const data = snapshot.val();
                 
-                if(data.sender === myUserName) {
+                // Si el mensaje es mío (Verifico con el UID de Google)
+                if(data.uid === currentUserData.uid) {
                     chatMessages.innerHTML += `
-                        <div class="flex flex-col items-end w-4/5 ml-auto">
-                            <span class="text-[10px] text-slate-400 mb-1 pr-1 font-bold">${data.sender} (Tú)</span>
-                            <div class="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl rounded-tr-sm px-4 py-2 text-sm text-white shadow-md">
-                                ${data.text}
+                        <div class="flex items-start justify-end gap-2 w-full ml-auto mt-2">
+                            <div class="flex flex-col items-end max-w-[80%]">
+                                <span class="text-[10px] text-slate-400 mb-1 pr-1 font-bold">Tú</span>
+                                <div class="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl rounded-tr-sm px-4 py-2 text-sm text-white shadow-md break-words">
+                                    ${data.text}
+                                </div>
                             </div>
+                            <img src="${data.foto || 'https://via.placeholder.com/40'}" class="w-8 h-8 rounded-full border border-white/20 shrink-0 object-cover mt-4">
                         </div>
                     `;
                 } else {
+                    // Si el mensaje es de otro (o del master)
                     chatMessages.innerHTML += `
-                        <div class="flex items-start gap-3 w-4/5">
-                            <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-cyan-400 to-blue-600 flex-shrink-0 flex items-center justify-center text-xs text-white font-bold">
-                                ${data.sender.charAt(0).toUpperCase()}
+                        <div class="flex items-start gap-2 w-full mt-2">
+                            <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-cyan-400 to-blue-600 flex-shrink-0 flex items-center justify-center text-xs text-white font-bold border border-white/20 mt-4 overflow-hidden">
+                                ${data.foto ? `<img src="${data.foto}" class="w-full h-full object-cover">` : data.sender.charAt(0).toUpperCase()}
                             </div>
-                            <div class="flex flex-col items-start">
-                                <span class="text-[10px] text-slate-400 mb-1 pl-1 font-bold">${data.sender}</span>
-                                <div class="bg-white/10 border border-white/5 rounded-2xl rounded-tl-sm px-4 py-2 text-sm text-slate-200 shadow-md">
+                            <div class="flex flex-col items-start max-w-[80%]">
+                                <span class="text-[10px] text-slate-400 mb-1 pl-1 font-bold">${data.sender.split(' ')[0]}</span>
+                                <div class="bg-white/10 border border-white/5 rounded-2xl rounded-tl-sm px-4 py-2 text-sm text-slate-200 shadow-md break-words">
                                     ${data.text}
                                 </div>
                             </div>
@@ -522,9 +551,12 @@
             const input = document.getElementById('chatInput');
             const message = input.value.trim();
             
-            if (message !== "") {
+            if (message !== "" && currentUserData) {
+                // Ahora enviamos todos los datos jugosos a Firebase
                 currentRoomRef.push({
-                    sender: myUserName,
+                    uid: currentUserData.uid,
+                    sender: currentUserData.nombre,
+                    foto: currentUserData.foto, // <-- Guardamos la foto en el mensaje!
                     text: message,
                     timestamp: firebase.database.ServerValue.TIMESTAMP
                 });

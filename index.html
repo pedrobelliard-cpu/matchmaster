@@ -11,6 +11,7 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
 
     <style>
         html, body {
@@ -194,8 +195,16 @@
             <div id="chatMessages" class="flex-1 overflow-y-auto p-4 space-y-4 chat-scroll bg-gradient-to-b from-transparent to-black/20">
             </div>
 
-            <div class="p-4 bg-white/5 border-t border-white/10 shrink-0">
+            <div class="p-4 bg-white/5 border-t border-white/10 shrink-0 relative">
+                <div id="typingIndicator" class="text-[11px] text-slate-400 font-medium px-4 pb-2 hidden italic"></div>
+                
                 <div class="flex gap-2">
+                    <input type="file" id="imageUpload" accept="image/*" class="hidden" onchange="uploadImage(event)">
+                    
+                    <button onclick="document.getElementById('imageUpload').click()" class="bg-white/10 border border-white/10 hover:bg-white/20 text-white w-12 rounded-xl flex items-center justify-center transition-colors shrink-0" title="Enviar imagen">
+                        📎
+                    </button>
+                    
                     <input type="text" id="chatInput" placeholder="Escribe un mensaje..." class="flex-1 bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-[16px] text-white focus:outline-none focus:border-purple-500 transition-colors" onkeypress="handleKeyPress(event)">
                     <button onclick="sendChatMessage()" class="bg-gradient-to-r from-blue-600 to-purple-600 w-12 rounded-xl flex items-center justify-center hover:scale-105 transition-transform shadow-lg shrink-0">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white" viewBox="0 0 20 20" fill="currentColor">
@@ -224,9 +233,13 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
         const auth = firebase.auth();
+        const storage = firebase.storage(); // Inicializar Storage para fotos
         const provider = new firebase.auth.GoogleAuthProvider();
 
         let currentRoomRef = null; 
+        let currentTypingRef = null; // Ref para "Está escribiendo..."
+        let typingTimeout = null;
+        const TYPING_TIMER_LENGTH = 2000;
         
         // ==========================================
         // VARIABLES GLOBALES Y ROLES
@@ -239,7 +252,7 @@
         let currentSelectedMasterName = "";
         let currentSelectedMasterPhoto = "";
 
-        let isViewingColleagues = false; // Variable para saber en qué vista está el Master
+        let isViewingColleagues = false; 
 
         // ==========================================
         // ESTADO DE AUTENTICACIÓN (GOOGLE)
@@ -296,7 +309,7 @@
             );
 
             if (myMasterProfile) {
-                document.getElementById('toggleColleaguesBtn').classList.remove('hidden'); // Mostrar botón
+                document.getElementById('toggleColleaguesBtn').classList.remove('hidden'); 
                 renderMasterDashboard(); 
             } else {
                 renderClientView(allUsersData); 
@@ -319,9 +332,8 @@
             document.getElementById('sidebarPulse').innerText = "Privado";
             document.getElementById('sidebarPromo').style.display = 'none';
 
-            // Escuchar chats de clientes
             db.ref(`chats/${myMasterProfile.Telefono}`).on('value', (snapshot) => {
-                if (isViewingColleagues) return; // Si está viendo colegas, no repintar esto
+                if (isViewingColleagues) return; 
                 const clients = snapshot.val() || {};
                 const sidebarList = document.getElementById('sidebarList');
                 const numClients = Object.keys(clients).length;
@@ -340,6 +352,10 @@
                     const clientName = lastMsg.uid === myMasterProfile.uid ? "Cliente (Tú respondiste)" : lastMsg.sender; 
                     const clientFoto = lastMsg.uid === myMasterProfile.uid ? "👤" : (lastMsg.foto || "👤");
 
+                    // Chequeo visual rápido para saber si el último mensaje fue una foto
+                    let previewText = lastMsg.text;
+                    if (lastMsg.imageUrl && previewText === "") previewText = "📷 Imagen recibida";
+
                     sidebarList.innerHTML += `
                     <div onclick="openChatAsMaster('${clientUid}', '${clientName}', '${clientFoto}')" class="flex items-center gap-3 p-3 bg-white/5 rounded-xl border border-white/10 hover:bg-white/20 transition cursor-pointer transform hover:scale-105">
                         <div class="w-10 h-10 rounded-full bg-gradient-to-br from-purple-400 to-pink-600 flex items-center justify-center font-bold text-sm text-white overflow-hidden shrink-0 border border-white/20">
@@ -347,14 +363,13 @@
                         </div>
                         <div class="overflow-hidden w-full">
                             <h4 class="font-bold text-sm text-white leading-none truncate">${clientName}</h4>
-                            <p class="text-[11px] text-blue-100 font-medium mt-1 truncate">${lastMsg.text}</p>
+                            <p class="text-[11px] text-blue-100 font-medium mt-1 truncate">${previewText}</p>
                         </div>
                     </div>
                     `;
                 }
             });
 
-            // Tarjeta principal (Inbox)
             const matchCard = document.getElementById('matchCard');
             matchCard.style.opacity = '1';
             matchCard.style.animation = 'float-card 4s ease-in-out infinite';
@@ -376,25 +391,21 @@
             isViewingColleagues = !isViewingColleagues;
 
             if (isViewingColleagues) {
-                // Modo Colegas
                 document.getElementById('toggleColleaguesBtn').innerHTML = "📬 Volver a mis chats";
                 document.getElementById('toggleColleaguesBtn').className = "absolute -top-4 right-4 bg-gradient-to-r from-blue-600 to-cyan-600 text-white text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-full shadow-lg hover:scale-105 transition-transform border border-white/20";
                 
                 document.getElementById('mainTitle').innerHTML = `Directorio de<br><span class="text-gradient">Colegas.</span>`;
                 document.getElementById('mainDescription').innerText = "Conecta con otros Masters y técnicos para hacer networking o pedir ayuda en un proyecto.";
                 
-                // Mostrar a los otros masters (excluyéndome a mí mismo)
                 const colleagues = allUsersData.filter(u => u && u.Telefono !== myMasterProfile.Telefono);
-                renderSidebar(colleagues); // Usamos la misma función de sidebar
+                renderSidebar(colleagues); 
                 
-                // Resetear tarjeta
                 if(colleagues.length > 0) {
                     renderMainCard(colleagues[0]);
                 } else {
                     document.getElementById('cardContent').innerHTML = `<p class="text-center text-slate-300 p-6">No hay otros colegas disponibles.</p>`;
                 }
             } else {
-                // Volver a Bandeja de Entrada
                 renderMasterDashboard();
             }
         }
@@ -413,7 +424,6 @@
             const matchCard = document.getElementById('matchCard');
             matchCard.classList.remove('opacity-50');
             
-            // Restaurar estructura de la tarjeta si venimos del Inbox
             if (document.getElementById('cardContent').innerHTML.includes('📬')) {
                 document.getElementById('cardContent').innerHTML = `
                     <div class="flex items-center justify-between mb-6">
@@ -495,7 +505,6 @@
         }
 
         function changeMainCard(index) {
-            // Permitir cambio de tarjeta si es Cliente o si es Master viendo Colegas
             if(myMasterProfile && !isViewingColleagues) return; 
             
             const matchCard = document.getElementById('matchCard');
@@ -541,7 +550,6 @@
 
         db.ref('presence').on('value', (snapshot) => {
             activePresences = snapshot.val() || {};
-            // Repintar sidebar de clientes o colegas según la vista actual
             if (allUsersData.length > 0) {
                 if(!myMasterProfile) {
                     renderSidebar(allUsersData);
@@ -599,7 +607,7 @@
         }
 
         // ==========================================
-        // SISTEMA DE CHAT PRIVADO E INTERNO
+        // SISTEMA DE CHAT AVANZADO (FOTOS, LEÍDO, ESCRIBIENDO)
         // ==========================================
         const chatModal = document.getElementById('chatModal');
         const chatBox = document.getElementById('chatBox');
@@ -654,7 +662,6 @@
             }, 1000);
         }
 
-        // Cliente conectando con Técnico
         function openChatAsClient() {
             document.getElementById('chatName').innerText = currentSelectedMasterName;
             document.getElementById('chatAvatar').innerText = currentSelectedMasterPhoto;
@@ -668,14 +675,17 @@
             `;
 
             if (currentRoomRef) currentRoomRef.off();
+            if (currentTypingRef) currentTypingRef.off();
+            
             const roomID = `chats/${currentSelectedMasterPhone}/${currentUserData.uid}`;
             currentRoomRef = db.ref(roomID);
+            currentTypingRef = db.ref(roomID + "_typing");
 
             listenToChatRoom(chatMessages);
+            listenToTyping();
             showChatModal();
         }
 
-        // Técnico viendo su Inbox
         function openChatAsMaster(clientUid, clientName, clientFoto) {
             document.getElementById('chatName').innerText = clientName;
             
@@ -695,14 +705,17 @@
             `;
 
             if (currentRoomRef) currentRoomRef.off();
+            if (currentTypingRef) currentTypingRef.off();
+            
             const roomID = `chats/${myMasterProfile.Telefono}/${clientUid}`;
             currentRoomRef = db.ref(roomID);
+            currentTypingRef = db.ref(roomID + "_typing");
 
             listenToChatRoom(chatMessages);
+            listenToTyping();
             showChatModal();
         }
 
-        // NUEVO: Técnico hablando con otro Técnico (Colega)
         function openChatWithColleague() {
             document.getElementById('chatName').innerText = currentSelectedMasterName;
             document.getElementById('chatAvatar').innerText = currentSelectedMasterPhoto;
@@ -716,34 +729,105 @@
             `;
 
             if (currentRoomRef) currentRoomRef.off();
+            if (currentTypingRef) currentTypingRef.off();
             
-            // LA MAGIA: Creamos un ID único combinando ambos teléfonos en orden alfabético para que sea la misma sala para los dos
             const phones = [myMasterProfile.Telefono, currentSelectedMasterPhone].sort();
             const roomID = `chats_internos/${phones[0]}_${phones[1]}`;
             currentRoomRef = db.ref(roomID);
+            currentTypingRef = db.ref(roomID + "_typing");
 
             listenToChatRoom(chatMessages);
+            listenToTyping();
             showChatModal();
         }
 
+        // Lógica de "Está escribiendo..."
+        function listenToTyping() {
+            currentTypingRef.on('value', (snapshot) => {
+                const typingData = snapshot.val();
+                const indicator = document.getElementById('typingIndicator');
+                
+                if (typingData) {
+                    let isSomeoneElseTyping = false;
+                    let typingName = "";
+                    
+                    for (const uid in typingData) {
+                        if (uid !== currentUserData.uid && typingData[uid].isTyping) {
+                            isSomeoneElseTyping = true;
+                            typingName = typingData[uid].nombre;
+                            break;
+                        }
+                    }
+                    
+                    if (isSomeoneElseTyping) {
+                        indicator.innerText = `${typingName} está escribiendo...`;
+                        indicator.classList.remove('hidden');
+                        const chatMessages = document.getElementById('chatMessages');
+                        chatMessages.scrollTop = chatMessages.scrollHeight;
+                    } else {
+                        indicator.classList.add('hidden');
+                    }
+                } else {
+                    indicator.classList.add('hidden');
+                }
+            });
+        }
+
+        // Detectar pulsación de teclas para enviar estado "escribiendo"
+        document.getElementById('chatInput').addEventListener('input', () => {
+            if (!currentTypingRef || !currentUserData) return;
+            
+            currentTypingRef.child(currentUserData.uid).set({
+                nombre: currentUserData.nombre.split(' ')[0],
+                isTyping: true
+            });
+
+            clearTimeout(typingTimeout);
+            typingTimeout = setTimeout(() => {
+                currentTypingRef.child(currentUserData.uid).remove();
+            }, TYPING_TIMER_LENGTH);
+        });
+
+        // Lógica principal de renderizado de mensajes (Fotos y Doble Check)
         function listenToChatRoom(chatMessagesContainer) {
             currentRoomRef.on('child_added', (snapshot) => {
                 const data = snapshot.val();
+                const msgKey = snapshot.key;
+                
+                // Procesar contenido: Texto o Foto
+                let messageContent = data.text;
+                if (data.imageUrl) {
+                    messageContent = `<img src="${data.imageUrl}" class="w-full max-w-[200px] rounded-lg cursor-pointer hover:opacity-90 transition-opacity mt-1 mb-1" onclick="window.open('${data.imageUrl}', '_blank')">`;
+                    if (data.text && data.text !== "📷 Imagen enviada") {
+                         messageContent += `<span class="block mt-1">${data.text}</span>`;
+                    }
+                }
                 
                 if(data.uid === currentUserData.uid) {
-                    chatMessagesContainer.innerHTML += `
+                    // Si el mensaje es mío, pinto la palomita
+                    const readStatus = data.read ? 
+                        `<span id="read_${msgKey}" class="text-[11px] text-blue-400 ml-1 font-bold">✓✓</span>` : 
+                        `<span id="read_${msgKey}" class="text-[11px] text-slate-400 ml-1 font-bold">✓</span>`;
+
+                    chatMessagesContainer.insertAdjacentHTML('beforeend', `
                         <div class="flex items-start justify-end gap-2 w-full ml-auto mt-2">
                             <div class="flex flex-col items-end max-w-[80%]">
                                 <span class="text-[10px] text-slate-400 mb-1 pr-1 font-bold">Tú</span>
-                                <div class="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl rounded-tr-sm px-4 py-2 text-sm text-white shadow-md break-words">
-                                    ${data.text}
+                                <div class="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl rounded-tr-sm px-4 py-2 text-sm text-white shadow-md break-words flex flex-col items-end">
+                                    <div>${messageContent}</div>
+                                    <div class="-mb-1 -mr-1">${readStatus}</div>
                                 </div>
                             </div>
                             <img src="${data.foto || 'https://via.placeholder.com/40'}" class="w-8 h-8 rounded-full border border-white/20 shrink-0 object-cover mt-4">
                         </div>
-                    `;
+                    `);
                 } else {
-                    chatMessagesContainer.innerHTML += `
+                    // Si el mensaje es del otro y yo lo estoy viendo, lo marco como leído en la base de datos
+                    if (!data.read) {
+                        currentRoomRef.child(msgKey).update({ read: true });
+                    }
+
+                    chatMessagesContainer.insertAdjacentHTML('beforeend', `
                         <div class="flex items-start gap-2 w-full mt-2">
                             <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-cyan-400 to-blue-600 flex-shrink-0 flex items-center justify-center text-xs text-white font-bold border border-white/20 mt-4 overflow-hidden">
                                 ${data.foto && data.foto.startsWith('http') ? `<img src="${data.foto}" class="w-full h-full object-cover">` : data.sender.charAt(0).toUpperCase()}
@@ -751,13 +835,28 @@
                             <div class="flex flex-col items-start max-w-[80%]">
                                 <span class="text-[10px] text-slate-400 mb-1 pl-1 font-bold">${data.sender.split(' ')[0]}</span>
                                 <div class="bg-white/10 border border-white/5 rounded-2xl rounded-tl-sm px-4 py-2 text-sm text-slate-200 shadow-md break-words">
-                                    ${data.text}
+                                    ${messageContent}
                                 </div>
                             </div>
                         </div>
-                    `;
+                    `);
                 }
                 chatMessagesContainer.scrollTop = chatMessagesContainer.scrollHeight; 
+            });
+
+            // Escuchar si mis mensajes pasaron de no leídos a leídos
+            currentRoomRef.on('child_changed', (snapshot) => {
+                const data = snapshot.val();
+                const msgKey = snapshot.key;
+                
+                if (data.uid === currentUserData.uid && data.read) {
+                    const readIcon = document.getElementById(`read_${msgKey}`);
+                    if (readIcon) {
+                        readIcon.innerText = "✓✓";
+                        readIcon.classList.add('text-blue-400');
+                        readIcon.classList.remove('text-slate-400');
+                    }
+                }
             });
         }
 
@@ -775,6 +874,10 @@
             chatModal.classList.add('opacity-0');
             chatBox.classList.remove('scale-100');
             chatBox.classList.add('scale-95');
+            
+            if (currentTypingRef && currentUserData) {
+                currentTypingRef.child(currentUserData.uid).remove(); // Borro mi estado de escribiendo al salir
+            }
             setTimeout(() => chatModal.classList.add('hidden'), 300);
         }
 
@@ -788,10 +891,56 @@
                     sender: currentUserData.nombre,
                     foto: currentUserData.foto,
                     text: message,
+                    read: false, // Por defecto no está leído
                     timestamp: firebase.database.ServerValue.TIMESTAMP
                 });
+                
+                if (currentTypingRef) currentTypingRef.child(currentUserData.uid).remove();
                 input.value = ""; 
             }
+        }
+
+        // NUEVO: Función para procesar y subir imágenes
+        function uploadImage(event) {
+            const file = event.target.files[0];
+            if (!file || !currentUserData || !currentRoomRef) return;
+
+            const inputField = document.getElementById('chatInput');
+            const originalPlaceholder = inputField.placeholder;
+            inputField.placeholder = "Subiendo imagen... ⏳";
+            inputField.disabled = true;
+
+            const storageRef = storage.ref();
+            const fileName = `chat_images/${Date.now()}_${file.name}`;
+            const uploadTask = storageRef.child(fileName).put(file);
+
+            uploadTask.on('state_changed', 
+                null, 
+                (error) => {
+                    console.error("Error al subir imagen:", error);
+                    alert("Error al subir la imagen. Revisa los permisos de Firebase Storage.");
+                    inputField.placeholder = originalPlaceholder;
+                    inputField.disabled = false;
+                }, 
+                () => {
+                    uploadTask.snapshot.ref.getDownloadURL().then((downloadURL) => {
+                        currentRoomRef.push({
+                            uid: currentUserData.uid,
+                            sender: currentUserData.nombre,
+                            foto: currentUserData.foto,
+                            text: "", // Texto vacío porque es una foto
+                            imageUrl: downloadURL,
+                            read: false,
+                            timestamp: firebase.database.ServerValue.TIMESTAMP
+                        });
+                        
+                        inputField.placeholder = originalPlaceholder;
+                        inputField.disabled = false;
+                        event.target.value = ""; // Resetear el botón de archivo
+                        setTimeout(() => inputField.focus(), 100);
+                    });
+                }
+            );
         }
 
         function handleKeyPress(event) { if (event.key === 'Enter') sendChatMessage(); }
